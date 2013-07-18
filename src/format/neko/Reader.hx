@@ -112,6 +112,7 @@ class Reader {
 		var codesize = readInt();
 		// globals
 		var globals = alloc(nglobals);
+		var version = 1;
 		for( k in 0...nglobals )
 			globals[k] = switch( i.readByte() ) {
 			case 1:
@@ -126,6 +127,9 @@ class Reader {
 				GlobalFloat(i.readUntil(0));
 			case 5:
 				GlobalDebug(readDebugInfos());
+			case 6:
+				version = i.readByte();
+				GlobalString(null);
 			default:
 				error();
 			}
@@ -136,6 +140,7 @@ class Reader {
 		// code
 		var code = alloc(codesize + 1);
 		var p = 0;
+		
 		while( p < codesize ) {
 			var t = i.readByte();
 			switch( t & 3 ) {
@@ -146,8 +151,14 @@ class Reader {
 				code[p++] = (t >> 2) & 1;
 			case 2:
 				code[p++] = t >> 2;
-				code[p++] = i.readByte();
-			default:
+				if( t == 2 ) {
+					// extra opcodes
+					code[p - 1] = i.readByte();
+				} else {
+					code[p++] = i.readByte();
+				}
+				//code[p++] = i.readByte();
+			case 3:
 				code[p++] = t >> 2;
 				code[p++] = #if haxe3 i.readInt32() #else i.readInt31() #end;
 			}
