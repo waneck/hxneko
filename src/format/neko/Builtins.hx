@@ -42,6 +42,11 @@ class Builtins {
 		b("typeof", VFun1(typeof));
 		b("string", VFun1(string));
 		b("print", VFunVar(print));
+		
+		b("call", VFun3(call));
+		b("ssize", VFun1(ssize));
+		b("array", VFunVar(array));
+		b("amake", VFun1(amake));
 	}
 	
 	// -------- HELPERS ---------------------
@@ -158,6 +163,43 @@ class Builtins {
 	}
 	
 	// ----------------- BUILTINS -------------------
+	
+	public function array( args : Array<Value> ) : Value
+	{
+		return VArray(args);
+	}
+	
+	public function call( f : Value, ctx : Value, args : Value ) : Value
+	{
+		var args = switch(args)
+		{
+			case VArray(v):v;
+			default: throw "Expected array as argument";
+		};
+		return vm.call(ctx, f, args);
+	}
+	
+	public function ssize( s : Value ) : Value
+	{
+		switch(s)
+		{
+			case VString(s): return VInt(s.length);
+			default: return throw 'Expected string for $s';
+		};
+	}
+	
+	public function amake( s : Value ) : Value
+	{
+		switch(s)
+		{
+			case VInt(i):
+				var arr = [];
+				for (i in 0...i) arr.push(null);
+				return VArray(arr);
+			default:
+				return throw 'Expected int $s';
+		}
+	}
 		
 	public function typeof( o : Value ) : Value {
 		return VInt(switch( o ) {
