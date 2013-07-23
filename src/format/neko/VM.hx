@@ -376,26 +376,25 @@ class VM {
 	function loop( pc : Int ) {
 		var acc = VNull;
 		var code = module.code.code;
-		var opcodes = opcodes;
 		while( true ) {
-			var op = opcodes[code[pc++]];
+			var op = code[pc++];
 			//trace(pc);
 			//trace(code[pc]);
 			//trace(opcodes);
 			var dbg = module.debug[pc];
 			if( dbg != null ) trace(dbg.file + "(" + dbg.line + ") " + op+ " " +Lambda.count(stack));
 			switch( op ) {
-			case OAccNull:
+			case Op.AccNull:
 				acc = VNull;
-			case OAccTrue:
+			case Op.AccTrue:
 				acc = VBool(true);
-			case OAccFalse:
+			case Op.AccFalse:
 				acc = VBool(false);
-			case OAccThis:
+			case Op.AccThis:
 				acc = vthis;
-			case OAccInt:
+			case Op.AccInt:
 				acc = VInt(code[pc++]);
-			case OAccStack:
+			case Op.AccStack:
 				var idx = code[pc++];
 				var head = stack.head;
 				while( idx > -2 ) {
@@ -403,18 +402,18 @@ class VM {
 					idx--;
 				}
 				acc = head.elt;
-			case OAccStack0:
+			case Op.AccStack0:
 				acc = stack.head.elt;
-			case OAccStack1:
+			case Op.AccStack1:
 				acc = stack.head.next.elt;
-			case OAccGlobal:
+			case Op.AccGlobal:
 				acc = module.gtable[code[pc++]];
-// case OAccEnv:
-			case OAccField:
+// case Op.AccEnv:
+			case Op.AccField:
 				acc = getField(acc, code[pc]);
 				if( acc == null ) error(pc, "Invalid field access : " + fieldName(code[pc]));
 				pc++;
-			case OAccArray:
+			case Op.AccArray:
 				var arr = stack.pop();
 				switch( arr ) {
 				case VArray(a):
@@ -427,14 +426,14 @@ class VM {
 				default:
 					error(pc, "Invalid array access");
 				}
-			case OAccIndex:
+			case Op.AccIndex:
 				acc = accIndex(pc, acc, code[pc] + 2);
 				pc++;
-			case OAccIndex0:
+			case Op.AccIndex0:
 				acc = accIndex(pc, acc, 0);
-			case OAccIndex1:
+			case Op.AccIndex1:
 				acc = accIndex(pc, acc, 1);
-			case OAccBuiltin:
+			case Op.AccBuiltin:
 				acc = hbuiltins.get(code[pc++]);
 				if( acc == null ) {
 					if( code[pc - 1] == hloader )
@@ -444,7 +443,7 @@ class VM {
 					else
 						error(pc - 1, "Builtin not found : " + fieldName(code[pc - 1]));
 				}
-			case OSetStack:
+			case Op.SetStack:
 				var idx = code[pc++];
 				var head = stack.head;
 				while( idx > 0 ) {
@@ -452,26 +451,26 @@ class VM {
 					idx--;
 				}
 				head.elt = acc;
-			case OSetGlobal:
+			case Op.SetGlobal:
 				module.gtable[code[pc++]] = acc;
-// case OSetEnv:
-			case OSetField:
+// case Op.SetEnv:
+			case Op.SetField:
 				var obj = stack.pop();
 				switch( obj ) {
 				case VObject(o): o.fields.set(code[pc++], acc);
 				case VProxy(o): Reflect.setField(o, fieldName(code[pc++]), unwrap(acc));
 				default: error(pc, "Invalid field access : " + fieldName(code[pc]));
 				}
-// case OSetArray:
-// case OSetIndex:
-// case OSetThis:
-			case OPush:
+// case Op.SetArray:
+// case Op.SetIndex:
+// case Op.SetThis:
+			case Op.Push:
 				if( acc == null ) throw "assert";
 				stack.add(acc);
-			case OPop:
+			case Op.Pop:
 				for( i in 0...code[pc++] )
 					stack.pop();
-			case OTailCall:
+			case Op.TailCall:
 				var v = code[pc];
 				var nstack = v >> 3;
 				var nargs = v & 7;
@@ -487,58 +486,58 @@ class VM {
 					args.next = head;
 				}
 				return mcall(pc, vthis, acc, nargs);
-			case OCall:
+			case Op.Call:
 				acc = mcall(pc, vthis, acc, code[pc]);
 				pc++;
-			case OObjCall:
+			case Op.ObjCall:
 				acc = mcall(pc, stack.pop(), acc, code[pc]);
 				pc++;
-			case OJump:
+			case Op.Jump:
 				pc += code[pc] - 1;
-			case OJumpIf:
+			case Op.JumpIf:
 				switch( acc ) {
 				case VBool(a): if( a ) pc += code[pc] - 2;
 				default:
 				}
 				pc++;
-			case OJumpIfNot:
+			case Op.JumpIfNot:
 				switch( acc ) {
 				case VBool(a): if( !a ) pc += code[pc] - 2;
 				default: pc += code[pc] - 2;
 				}
 				pc++;
-// case OTrap:
-// case OEndTrap:
-			case ORet:
+// case Op.Trap:
+// case Op.EndTrap:
+			case Op.Ret:
 				for( i in 0...code[pc++] )
 					stack.pop();
 				return acc;
-// case OMakeEnv:
-			case OMakeArray:
+// case Op.MakeEnv:
+			case Op.MakeArray:
 				var a = new Array();
 				for( i in 0...code[pc++] )
 					a.unshift(stack.pop());
 				a.unshift(acc);
 				acc = VArray(a);
-			case OBool:
+			case Op.Bool:
 				acc = switch( acc ) {
 				case VBool(_): acc;
 				case VNull: VBool(false);
 				case VInt(i): VBool(i != 0);
 				default: VBool(true);
 				}
-			case ONot:
+			case Op.Not:
 				acc = switch( acc ) {
 				case VBool(b): VBool(!b);
 				case VNull: VBool(true);
 				case VInt(i): VBool(i == 0);
 				default: VBool(false);
 				}
-			case OIsNull:
+			case Op.IsNull:
 				acc = VBool(acc == VNull);
-			case OIsNotNull:
+			case Op.IsNotNull:
 				acc = VBool(acc != VNull);
-			case OAdd:
+			case Op.Add:
 				var a = stack.pop();
 				acc = switch( acc ) {
 				case VInt(b):
@@ -570,53 +569,53 @@ class VM {
 				default: null;
 				}
 				if( acc == null ) error(pc, "+");
-// case OSub:
-// case OMult:
-// case ODiv:
-// case OMod:
-// case OShl:
-// case OShr:
-// case OUShr:
-// case OOr:
-// case OAnd:
-// case OXor:
-			case OEq:
+// case Op.Sub:
+// case Op.Mult:
+// case Op.Div:
+// case Op.Mod:
+// case Op.Shl:
+// case Op.Shr:
+// case Op.UShr:
+// case Op.Or:
+// case Op.And:
+// case Op.Xor:
+			case Op.Eq:
 				var c = compare(pc, stack.pop(), acc);
 				acc = VBool(c == 0 && c != Builtins.CINVALID);
-			case ONeq:
+			case Op.Neq:
 				var c = compare(pc, stack.pop(), acc);
 				acc = VBool(c != 0 && c != Builtins.CINVALID);
-			case OGt:
+			case Op.Gt:
 				var c = compare(pc, stack.pop(), acc);
 				acc = VBool(c > 0 && c != Builtins.CINVALID);
-			case OGte:
+			case Op.Gte:
 				var c = compare(pc, stack.pop(), acc);
 				acc = VBool(c >= 0 && c != Builtins.CINVALID);
-			case OLt:
+			case Op.Lt:
 				var c = compare(pc, stack.pop(), acc);
 				acc = VBool(c < 0 && c != Builtins.CINVALID);
-			case OLte:
+			case Op.Lte:
 				var c = compare(pc, stack.pop(), acc);
 				acc = VBool(c <= 0 && c != Builtins.CINVALID);
-			case OTypeOf:
+			case Op.TypeOf:
 				acc = builtins.typeof(acc);
-			case OCompare:
+			case Op.Compare:
 				var v = builtins._compare(stack.pop(), acc);
 				acc = (v == Builtins.CINVALID) ? VNull : VInt(v);
-			case OHash:
+			case Op.Hash:
 				switch( acc ) {
 				case VString(f): acc = VInt(hashField(f));
 				default: error(pc, "$hash");
 				}
-			case ONew:
+			case Op.New:
 				switch( acc ) {
 				case VNull: acc = VObject(new ValueObject(null));
 				case VObject(o): acc = VObject(new ValueObject(o));
 				default: error(pc, "$new");
 				}
-// case OJumpTable:
-// case OApply:
-			case OPhysCompare:
+// case Op.JumpTable:
+// case Op.Apply:
+			case Op.PhysCompare:
 				error(pc, "$pcompare");
 			default:
 				throw "TODO:" + opcodes[code[pc - 1]];
