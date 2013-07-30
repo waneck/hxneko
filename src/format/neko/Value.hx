@@ -28,6 +28,7 @@
 package format.neko;
 import format.neko.Data;
 
+#if xneko_strict_value
 enum Value {
 	VNull;
 	VInt( i : Int );
@@ -42,6 +43,118 @@ enum Value {
 	VProxyFunction( f : Dynamic );
 }
 
+enum ValueFunction {
+	VFun0( f : Void -> Value );
+	VFun1( f : Value -> Value );
+	VFun2( f : Value -> Value -> Value );
+	VFun3( f : Value -> Value -> Value -> Value );
+	VFun4( f : Value -> Value -> Value -> Value -> Value );
+	VFun5( f : Value -> Value -> Value -> Value -> Value -> Value );
+	VFunVar( f : Array<Value> -> Value );
+}
+
+typedef ArrayValue<T> = Value;
+typedef IntValue = Value;
+typedef FloatValue = Value;
+typedef BoolValue = Value;
+typedef StringValue = Value;
+
+#else
+typedef Value = Dynamic;
+typedef ValueFunction = Dynamic;
+
+typedef ArrayValue<T> = Array<T>;
+typedef IntValue = Int;
+typedef FloatValue = Float;
+typedef BoolValue = Bool;
+typedef StringValue = String;
+
+#end
+
+class ValueTools
+{
+	#if !xneko_strict_value
+	public static inline var VNull = null;
+	public static inline function VInt( i : Int ) return i;
+	public static inline function VFloat( f : Float ) return f;
+	public static inline function VBool( b : Bool ) return b;
+	public static inline function VString( s : String ) return s;
+	public static inline function VObject( o : ValueObject ) return o;
+	public static inline function VArray( a : Array<Value> ) return a;
+	public static inline function VFunction( f : Dynamic ) return f;
+	public static inline function VAbstract( v : ValueAbstract ) return v;
+	public static inline function VProxy( o : Dynamic ) return o;
+	public static inline function VProxyFunction( f : Dynamic ) return f;
+	
+	public static inline function VFun0( f : Void -> Value ) : ValueFunction return f;
+	public static inline function VFun1( f : Value -> Value ) : ValueFunction return f;
+	public static inline function VFun2( f : Value -> Value -> Value ) : ValueFunction return f;
+	public static inline function VFun3( f : Value -> Value -> Value -> Value ) : ValueFunction return f;
+	public static inline function VFun4( f : Value -> Value -> Value -> Value -> Value ) : ValueFunction return f;
+	public static inline function VFun5( f : Value -> Value -> Value -> Value -> Value -> Value ) : ValueFunction return f;
+	public static inline function VFunVar( f : Array<Value> -> Value ) : ValueFunction return Reflect.makeVarArgs(f);
+	
+	public static inline function is( v : Value, c : Class<Dynamic> )
+	{
+		#if js
+		return untyped __instanceof__(v, c);
+		
+		#else
+		return Std.is(v, c);
+		
+		#end
+	}
+	
+	public static inline function as<T>( v : Value, c : Class<T> ) : T
+	{
+		#if cpp
+		return cast v;
+		
+		#elseif cs
+		return cs.Lib.as(v, c);
+		
+		#else
+		return Std.instance(v, c);
+		
+		#end
+	}
+	
+	public static inline function val_check_int( v : IntValue )
+	{
+		#if (!static && xneko_strict)
+		if (!Std.is(v, Int)) throw 'Int value expected. Got $v';
+		#end
+	}
+	
+	public static inline function val_check_bool( v : BoolValue )
+	{
+		#if (!static && xneko_strict)
+		if (!Std.is(v, Bool)) throw 'Bool value expected. Got $v';
+		#end
+	}
+	
+	public static inline function val_check_string( v : StringValue )
+	{
+		#if (!static && xneko_strict)
+		if (!Std.is(v, String)) throw 'String value expected. Got $v';
+		#end
+	}
+	
+	public static inline function val_check_array<T>( v : ArrayValue<T> )
+	{
+		#if (!static && xneko_strict)
+		if (!Std.is(v, Array)) throw 'Array value expected. Got $v';
+		#end
+	}
+	
+	#else
+	
+	
+	#end
+
+	
+}
+
 class ValueObject {
 	public var fields : Map<Int,Value>;
 	public var proto : Null<ValueObject>;
@@ -52,16 +165,6 @@ class ValueObject {
 }
 
 interface ValueAbstract {
-}
-
-enum ValueFunction {
-	VFun0( f : Void -> Value );
-	VFun1( f : Value -> Value );
-	VFun2( f : Value -> Value -> Value );
-	VFun3( f : Value -> Value -> Value -> Value );
-	VFun4( f : Value -> Value -> Value -> Value -> Value );
-	VFun5( f : Value -> Value -> Value -> Value -> Value -> Value );
-	VFunVar( f : Array<Value> -> Value );
 }
 
 class Module {

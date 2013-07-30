@@ -27,6 +27,8 @@
  */
 package format.neko;
 import format.neko.Value;
+import format.neko.Value.ValueTools.*;
+import format.neko.internal.Macro.h;
 
 class Builtins {
 	
@@ -56,6 +58,7 @@ class Builtins {
 	}
 	
 	public function _nargs( f : ValueFunction ) {
+		#if xneko_strict_value
 		return switch( f ) {
 		case VFun0(_): 0;
 		case VFun1(_): 1;
@@ -65,9 +68,18 @@ class Builtins {
 		case VFun5(_): 5;
 		case VFunVar(_): -1;
 		}
+		
+		//#elseif neko
+		//return untyped $nargs(f);
+		
+		#else //TODO for all platforms
+		return -1;
+		
+		#end
 	}
 	
 	public function _compare( a : Value, b : Value ) : Int {
+		#if xneko_strict_value
 		switch( a ) {
 		case VInt(a):
 			switch(b) {
@@ -132,9 +144,18 @@ class Builtins {
 		default:
 		}
 		return (a == b) ? 0 : CINVALID;
+		
+		#elseif xneko_strict
+		return (is(a, ValueObject) && is(b, ValueObject)) ? (a == b || objcall(a, h("__compare__"), [b])) : Reflect.compare(a, b);
+		
+		#else
+		return Reflect.compare(a, b);
+		
+		#end
 	}
 	
 	public function _string( v : Value ) {
+		#if xneko_strict_value
 		return switch( v ) {
 		case VNull: "null";
 		case VInt(i): Std.string(i);
@@ -160,36 +181,91 @@ class Builtins {
 		case VProxyFunction(f):
 			Std.string(f);
 		}
+		
+		#else
+		return Std.string(v);
+		
+		#end
 	}
 	
 	// ----------------- BUILTINS -------------------
+	
+	public function objcall( o : Value, f : IntValue, args : ArrayValue<Value> )
+	{
+		#if xneko_strict_value
+		switch(o)
+		{
+			case VArray(a):
+				return vm.call(o, objget(o, f), a);
+			default:
+				exc(VString('Expected Array for $args'));
+				return VNull;
+		}
+		
+		#else
+		val_check_array(args);
+		return vm.call(o, objget(o, f), args);
+		
+		#end
+	}
+	
+	public inline function objget( o : Value, f : IntValue ) : Value
+	{
+		#if xneko_strict_value
+		switch(f)
+		{
+			case VInt(i):
+				return vm.getField(o, i);
+			default:
+				exc(VString('Expected int for $f'));
+				return null;
+		}
+		
+		#else
+		val_check_int(f);
+		return vm.getField(o, f);
+		
+		#end
+	}
 	
 	public function array( args : Array<Value> ) : Value
 	{
 		return VArray(args);
 	}
 	
-	public function call( f : Value, ctx : Value, args : Value ) : Value
+	public function call( f : Value, ctx : Value, args : ArrayValue<Value> ) : Value
 	{
+		#if xneko_strict_value
 		var args = switch(args)
 		{
 			case VArray(v):v;
-			default: throw "Expected array as argument";
+			default: exc(VString("Expected array as argument")); null;
 		};
+		#else
+		val_check_array(args);
+		
+		#end
 		return vm.call(ctx, f, args);
 	}
 	
 	public function ssize( s : Value ) : Value
 	{
+		#if xneko_strict_value
 		switch(s)
 		{
 			case VString(s): return VInt(s.length);
 			default: return throw 'Expected string for $s';
 		};
+		
+		#else
+		return VInt(s.length);
+		
+		#end
 	}
 	
-	public function amake( s : Value ) : Value
+	public function amake( s : IntValue ) : Value
 	{
+		#if xneko_strict_value
 		switch(s)
 		{
 			case VInt(i):
@@ -199,14 +275,48 @@ class Builtins {
 			default:
 				return throw 'Expected int $s';
 		}
+		
+		#else
+		val_check_int(s);
+		var arr = [];
+		for (i in 0...s) arr.push(null);
+		return VArray(arr);
+		
+		#end
 	}
 		
 	public function typeof( o : Value ) : Value {
+		#if xneko_strict_value
 		return VInt(switch( o ) {
 		case VProxy(_): 5; // $tobject
 		case VProxyFunction(_): 7; // $tfunction
 		default: Type.enumIndex(o);
 		});
+		#elseif neko
+		return untyped $typeof(o);
+		#else //TODO optimize target-based
+		if (o == null)
+			return 0;
+		else if (Std.is(o, Float))
+			return Std.is(o, Int) ? 1 : 2;
+		else if (Std.is(o, Bool))
+			return 3;
+		else if (Reflect.isFunction(o))
+			return 7;
+		else {
+			var cl = Type.getClass(o);
+			if (cl == null)
+				return 5;
+			else if (cl == String)
+				return 4;
+			else if (cl == Array)
+				return 6;
+			else if (Std.is(cl, VAbstract))
+				return 8;
+			else
+				return 5;
+		}
+		#end
 	}
 	
 	function print( vl : Array<Value> ) {
@@ -222,6 +332,7 @@ class Builtins {
 	}
 	
 	function objsetproto( o : Value, p : Value ) : Value {
+		#if xneko_strict_value
 		switch( o ) {
 		case VObject(o):
 			switch(p) {
@@ -233,6 +344,19 @@ class Builtins {
 			return null;
 		}
 		return VNull;
+		
+		#else
+		var o2 = as(o, ValueObject);
+		if (o2 != null)
+		{
+			o2.proto = p;
+		} else {
+			throw 'Cannot set prototype for consolidated type: $o';
+		}
+		
+		return null;
+		
+		#end
 	}
 	
 }

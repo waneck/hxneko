@@ -28,6 +28,8 @@
 package format.neko;
 import format.neko.Data;
 import format.neko.Value;
+import format.neko.Value.ValueTools.*;
+import format.neko.internal.Macro.h;
 
 class VM {
 
@@ -42,7 +44,7 @@ class VM {
 	// registers
 	var vthis : Value;
 	var env : Array<Value>;
-	var stack : haxe.ds.GenericStack<Value>;
+	var stack : Array<Value>;
 
 	// current module
 	var module : Module;
@@ -51,7 +53,7 @@ class VM {
 		hbuiltins = new Map();
 		hfields = new Map();
 		opcodes = [];
-		stack = new haxe.ds.GenericStack<Value>();
+		stack = [];
 		for( f in Type.getEnumConstructs(Opcode) )
 			opcodes.push(Type.createEnum(Opcode, f));
 		builtins = new Builtins(this);
@@ -63,7 +65,7 @@ class VM {
 
 	function hash( s : String ) {
 		var h = 0;
-		#if neko
+		#if (neko_v2 || !haxe3)
 		for( i in 0...s.length )
 			h = 223 * h + s.charCodeAt(i);
 		return h;
@@ -90,6 +92,7 @@ class VM {
 	}
 
 	public function _abstract<T>( b : Value, t : Class<T> ) : T {
+		#if xneko_strict_value
 		switch( b ) {
 		case VAbstract(v):
 			if( Std.is(v, t) )
@@ -98,18 +101,27 @@ class VM {
 		}
 		exc(VString("Invalid call"));
 		return null;
+		
+		#else
+		var a = as(b, t);
+		if (a == null)
+			exc(VString("Invalid call"));
+		return a;
+		
+		#end
 	}
 
 	public function valueToString( v : Value ) {
 		return builtins._string(v);
 	}
 
-	function exc( v : Value ) {
+	public function exc( v : Value ) {
 		throw v;
 	}
 
 	function loadPrim( vprim : Value, vargs : Value ) {
-		var prim, nargs;
+		var prim:String, nargs:Int;
+		#if xneko_strict_value
 		switch( vprim ) {
 		case VString(s): prim = s;
 		default: return null;
@@ -118,6 +130,13 @@ class VM {
 		case VInt(n): nargs = n;
 		default: return null;
 		}
+		
+		#else
+		val_check_string(vprim);
+		val_check_int(vargs);
+		prim = vprim; nargs = vargs;
+		
+		#end
 		var me = this;
 		return VFunction(VFunVar(function(_) { me.exc(VString("Failed to load primitive " + prim + ":" + nargs)); return null; } ));
 	}
@@ -142,33 +161,33 @@ class VM {
 					return me.fcall(mod, pos);
 				});
 				case 1: VFun1(function(a) {
-					me.stack.add(a);
+					me.stack.push(a);
 					return me.fcall(mod, pos);
 				});
 				case 2: VFun2(function(a, b) {
-					me.stack.add(a);
-					me.stack.add(b);
+					me.stack.push(a);
+					me.stack.push(b);
 					return me.fcall(mod, pos);
 				});
 				case 3: VFun3(function(a, b, c) {
-					me.stack.add(a);
-					me.stack.add(b);
-					me.stack.add(c);
+					me.stack.push(a);
+					me.stack.push(b);
+					me.stack.push(c);
 					return me.fcall(mod, pos);
 				});
 				case 4: VFun4(function(a, b, c, d) {
-					me.stack.add(a);
-					me.stack.add(b);
-					me.stack.add(c);
-					me.stack.add(d);
+					me.stack.push(a);
+					me.stack.push(b);
+					me.stack.push(c);
+					me.stack.push(d);
 					return me.fcall(mod, pos);
 				});
 				case 5: VFun5(function(a, b, c, d, e) {
-					me.stack.add(a);
-					me.stack.add(b);
-					me.stack.add(c);
-					me.stack.add(d);
-					me.stack.add(e);
+					me.stack.push(a);
+					me.stack.push(b);
+					me.stack.push(c);
+					me.stack.push(d);
+					me.stack.push(e);
 					return me.fcall(mod, pos);
 				});
 				default:
@@ -205,7 +224,7 @@ class VM {
 
 	public function call( vthis : Value, vfun : Value, args : Array<Value> ) : Value {
 		for( a in args )
-			stack.add(a);
+			stack.push(a);
 		return mcall(0, vthis, vfun, args.length );
 	}
 
@@ -218,6 +237,7 @@ class VM {
 	}
 
 	function mcall( pc : Int, obj : Value, f : Value, nargs : Int ) {
+		#if xneko_strict_value
 		var ret = null;
 		var old = vthis;
 		vthis = obj;
@@ -275,6 +295,21 @@ class VM {
 			error(pc, "Invalid call");
 		vthis = old;
 		return ret;
+		
+		#else
+		var ret = null;
+		var old = vthis;
+		vthis = obj;
+		
+		var args = [];
+		for( i in 0...nargs )
+			args.unshift(unwrap(stack.pop()));
+		ret = Reflect.callMethod(obj, f, args);
+		
+		vthis = old;
+		return ret;
+		
+		#end
 	}
 
 	inline function compare( pc : Int, a : Value, b : Value ) {
@@ -282,6 +317,7 @@ class VM {
 	}
 
 	inline function accIndex( pc : Int, acc : Value, index : Int ) {
+		#if xneko_strict_value
 		switch( acc ) {
 		case VArray(a):
 			acc = a[index];
@@ -292,9 +328,21 @@ class VM {
 			error(pc, "Invalid array access");
 		}
 		return acc;
+		
+		#elseif (cpp || java || cs || neko || !xneko_strict) //already calls __get
+		return acc[index];
+		
+		#else
+		var arr = as(acc, Array);
+		if (arr == null)
+			throw "TODO";
+		return arr[index];
+		
+		#end
 	}
 
 	public function wrap( v : Dynamic ) {
+		#if xneko_strict_value
 		return switch( Type.typeof(v) ) {
 			case TNull: VNull;
 			case TInt: VInt(v);
@@ -312,9 +360,15 @@ class VM {
 				null;
 				#end
 		};
+		
+		#else
+		return v;
+		
+		#end
 	}
 
 	public function unwrap( v : Value ) : Dynamic {
+		#if xneko_strict_value
 		switch(v) {
 		case VNull: return null;
 		case VInt(i): return i;
@@ -350,9 +404,15 @@ class VM {
 				});
 			}
 		}
+		
+		#else
+		return v;
+		
+		#end
 	}
 
 	public function getField( v : Value, fid : Int ) {
+		#if xneko_strict_value
 		switch( v ) {
 		case VObject(o):
 			while( true ) {
@@ -371,6 +431,25 @@ class VM {
 			v = null;
 		}
 		return v;
+		
+		#else
+		var o2 = as(v, ValueObject);
+		if (o2 != null)
+		{
+			do
+			{
+				var r = o2.fields.get(fid);
+				if (r != null)
+					return r;
+				o2 = o2.proto;
+			} while (o2 != null);
+			
+			return null;
+		} else {
+			return wrap(Reflect.field(v, fieldName(fid)));
+		}
+		
+		#end
 	}
 
 	function loop( pc : Int ) {
@@ -382,7 +461,7 @@ class VM {
 			//trace(code[pc]);
 			//trace(opcodes);
 			var dbg = module.debug[pc];
-			if( dbg != null ) trace(dbg.file + "(" + dbg.line + ") " + op+ " " +Lambda.count(stack));
+			if( dbg != null ) trace(dbg.file + "(" + dbg.line + ") " + op+ " " +stack.length);
 			switch( op ) {
 			case Op.AccNull:
 				acc = VNull;
@@ -396,16 +475,11 @@ class VM {
 				acc = VInt(code[pc++]);
 			case Op.AccStack:
 				var idx = code[pc++];
-				var head = stack.head;
-				while( idx > -2 ) {
-					head = head.next;
-					idx--;
-				}
-				acc = head.elt;
+				acc = stack[stack.length - idx - 3];
 			case Op.AccStack0:
-				acc = stack.head.elt;
+				acc = stack[stack.length - 1];
 			case Op.AccStack1:
-				acc = stack.head.next.elt;
+				acc = stack[stack.length - 2];
 			case Op.AccGlobal:
 				acc = module.gtable[code[pc++]];
 // case Op.AccEnv:
@@ -415,6 +489,8 @@ class VM {
 				pc++;
 			case Op.AccArray:
 				var arr = stack.pop();
+				
+				#if xneko_strict_value
 				switch( arr ) {
 				case VArray(a):
 					switch( acc ) {
@@ -426,6 +502,13 @@ class VM {
 				default:
 					error(pc, "Invalid array access");
 				}
+				
+				#else
+				var i:IntValue = acc;
+				val_check_int(i);
+				acc = accIndex(pc, arr, i);
+				
+				#end
 			case Op.AccIndex:
 				acc = accIndex(pc, acc, code[pc] + 2);
 				pc++;
@@ -445,28 +528,35 @@ class VM {
 				}
 			case Op.SetStack:
 				var idx = code[pc++];
-				var head = stack.head;
-				while( idx > 0 ) {
-					head = head.next;
-					idx--;
-				}
-				head.elt = acc;
+				stack[stack.length - idx - 3] = acc;
 			case Op.SetGlobal:
 				module.gtable[code[pc++]] = acc;
 // case Op.SetEnv:
 			case Op.SetField:
 				var obj = stack.pop();
+				#if xneko_strict_value
 				switch( obj ) {
 				case VObject(o): o.fields.set(code[pc++], acc);
 				case VProxy(o): Reflect.setField(o, fieldName(code[pc++]), unwrap(acc));
 				default: error(pc, "Invalid field access : " + fieldName(code[pc]));
 				}
+				
+				#else
+				var o2 = as(obj, ValueObject);
+				if (o2 != null)
+				{
+					o2.fields.set(code[pc++], acc); //FIXME: check for references on prototype
+				} else {
+					Reflect.setField(obj, fieldName(code[pc++]), acc);
+				}
+				
+				#end
 // case Op.SetArray:
 // case Op.SetIndex:
 // case Op.SetThis:
 			case Op.Push:
 				if( acc == null ) throw "assert";
-				stack.add(acc);
+				stack.push(acc);
 			case Op.Pop:
 				for( i in 0...code[pc++] )
 					stack.pop();
@@ -474,16 +564,19 @@ class VM {
 				var v = code[pc];
 				var nstack = v >> 3;
 				var nargs = v & 7;
-				var head = stack.head;
-				while( nstack-- > 0 )
-					head = head.next;
-				if( nargs == 0 )
-					stack.head = head;
-				else {
-					var args = stack.head;
-					for( i in 0...nargs - 1 )
-						args = args.next;
-					args.next = head;
+				nstack -= nargs;
+				if (nargs == 0) {
+					for(i in 0...nstack)
+						stack.pop();
+				} else {
+					var len = stack.length;
+					for (i in 0...nargs)
+					{
+						len--;
+						stack[len - nstack] = stack.pop();
+					}
+					for (i in 0...nstack)
+						stack.pop();
 				}
 				return mcall(pc, vthis, acc, nargs);
 			case Op.Call:
@@ -495,16 +588,31 @@ class VM {
 			case Op.Jump:
 				pc += code[pc] - 1;
 			case Op.JumpIf:
+				#if xneko_strict_value
 				switch( acc ) {
 				case VBool(a): if( a ) pc += code[pc] - 2;
 				default:
 				}
+				
+				#else
+				var b:BoolValue = acc;
+				val_check_bool(b);
+				if (b) pc += code[pc] - 2;
+				
+				#end
 				pc++;
 			case Op.JumpIfNot:
+				#if xneko_strict_value
 				switch( acc ) {
 				case VBool(a): if( !a ) pc += code[pc] - 2;
 				default: pc += code[pc] - 2;
 				}
+				#else
+				var b:BoolValue = acc;
+				val_check_bool(b);
+				if (!b) pc += code[pc] - 2;
+				
+				#end
 				pc++;
 // case Op.Trap:
 // case Op.EndTrap:
@@ -520,25 +628,55 @@ class VM {
 				a.unshift(acc);
 				acc = VArray(a);
 			case Op.Bool:
+				#if xneko_strict_value
 				acc = switch( acc ) {
 				case VBool(_): acc;
 				case VNull: VBool(false);
 				case VInt(i): VBool(i != 0);
 				default: VBool(true);
 				}
+				
+				#else
+				var b:BoolValue = acc;
+				#if !static
+				if (!Std.is(acc, Bool))
+					b = acc != 0 && acc != null;
+				
+				#end
+				
+				#end
 			case Op.Not:
+				#if xneko_strict_value
 				acc = switch( acc ) {
 				case VBool(b): VBool(!b);
 				case VNull: VBool(true);
 				case VInt(i): VBool(i == 0);
 				default: VBool(false);
 				}
+				
+				acc = !acc 
+				
+				#else
+				var b:BoolValue = acc;
+					#if !static
+					if (!Std.is(acc, Bool))
+						b = acc == 0 || acc == null;
+					else
+						b = !b;
+					#else
+					b = !b;
+					
+					#end
+				acc = b;
+				
+				#end
 			case Op.IsNull:
 				acc = VBool(acc == VNull);
 			case Op.IsNotNull:
 				acc = VBool(acc != VNull);
 			case Op.Add:
 				var a = stack.pop();
+				#if xneko_strict_value
 				acc = switch( acc ) {
 				case VInt(b):
 					switch( a ) {
@@ -568,7 +706,15 @@ class VM {
 					wrap(unwrap(a) + b);
 				default: null;
 				}
-				if( acc == null ) error(pc, "+");
+				if ( acc == null ) error(pc, "+");
+				
+				#elseif xneko_strict
+				throw "TODO";
+				
+				#else
+				acc = a + acc;
+				
+				#end
 // case Op.Sub:
 // case Op.Mult:
 // case Op.Div:
@@ -603,16 +749,31 @@ class VM {
 				var v = builtins._compare(stack.pop(), acc);
 				acc = (v == Builtins.CINVALID) ? VNull : VInt(v);
 			case Op.Hash:
+				#if xneko_strict_value
 				switch( acc ) {
 				case VString(f): acc = VInt(hashField(f));
 				default: error(pc, "$hash");
 				}
+				
+				#else
+				var i:StringValue = acc;
+				val_check_string(i);
+				acc = hashField(i);
+				
+				#end
 			case Op.New:
+				#if xneko_strict_value
 				switch( acc ) {
 				case VNull: acc = VObject(new ValueObject(null));
 				case VObject(o): acc = VObject(new ValueObject(o));
 				default: error(pc, "$new");
 				}
+				
+				#else
+				//TODO add support for non-sandboxed objects
+				acc = new ValueObject(acc);
+				
+				#end
 // case Op.JumpTable:
 // case Op.Apply:
 			case Op.PhysCompare:
