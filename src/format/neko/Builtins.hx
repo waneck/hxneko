@@ -49,6 +49,10 @@ class Builtins {
 		b("ssize", VFun1(ssize));
 		b("array", VFunVar(array));
 		b("amake", VFun1(amake));
+		
+		b("int", VFun1(int));
+		b("objcall", VFun3(objcall));
+		b("objget", VFun2(objget));
 	}
 	
 	// -------- HELPERS ---------------------
@@ -190,6 +194,27 @@ class Builtins {
 	
 	// ----------------- BUILTINS -------------------
 	
+	public function int( o : Value ) : Value
+	{
+		#if xneko_strict_value
+		return switch(o)
+		{
+			case VInt(i): i;
+			case VFloat(f): Std.int(f);
+			case VString(s): Std.parseInt(s);
+		}
+		
+		#elseif xneko_strict
+		if (Std.is(o, String))
+			return VInt(Std.parseInt(o));
+		return (o == null) ? o : Std.int(o);
+		
+		#else
+		return (o == null) ? o : Std.int(o);
+		
+		#end
+	}
+	
 	public function objcall( o : Value, f : IntValue, args : ArrayValue<Value> )
 	{
 		#if xneko_strict_value
@@ -198,7 +223,7 @@ class Builtins {
 			case VArray(a):
 				return vm.call(o, objget(o, f), a);
 			default:
-				exc(VString('Expected Array for $args'));
+				vm.exc(VString('Expected Array for $args'));
 				return VNull;
 		}
 		
@@ -217,7 +242,7 @@ class Builtins {
 			case VInt(i):
 				return vm.getField(o, i);
 			default:
-				exc(VString('Expected int for $f'));
+				vm.exc(VString('Expected int for $f'));
 				return null;
 		}
 		
@@ -239,7 +264,7 @@ class Builtins {
 		var args = switch(args)
 		{
 			case VArray(v):v;
-			default: exc(VString("Expected array as argument")); null;
+			default: vm.exc(VString("Expected array as argument")); null;
 		};
 		#else
 		val_check_array(args);

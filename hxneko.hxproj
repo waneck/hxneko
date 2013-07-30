@@ -20,7 +20,7 @@
   </classpaths>
   <!-- Build options -->
   <build>
-    <option directives="" />
+    <option directives="xneko_strict_valuea" />
     <option flashStrict="False" />
     <option mainClass="Main" />
     <option enabledebug="False" />

@@ -77,7 +77,11 @@ class VM {
 	}
 
 	public dynamic function doPrint( s : String ) {
-		haxe.Log.trace(s, cast {});
+		#if sys
+		Sys.print(s);
+		#else
+		haxe.Log.trace(s, null);
+		#end
 	}
 
 	public function hashField( f : String ) {
@@ -457,11 +461,8 @@ class VM {
 		var code = module.code.code;
 		while( true ) {
 			var op = code[pc++];
-			//trace(pc);
-			//trace(code[pc]);
-			//trace(opcodes);
-			var dbg = module.debug[pc];
-			if( dbg != null ) trace(dbg.file + "(" + dbg.line + ") " + op+ " " +stack.length);
+			//var dbg = module.debug[pc];
+			//if( dbg != null ) trace(dbg.file + "(" + dbg.line + ") " + opcodes[op]+ " " +stack.length);
 			switch( op ) {
 			case Op.AccNull:
 				acc = VNull;
@@ -528,7 +529,7 @@ class VM {
 				}
 			case Op.SetStack:
 				var idx = code[pc++];
-				stack[stack.length - idx - 3] = acc;
+				stack[stack.length - idx - 1] = acc;
 			case Op.SetGlobal:
 				module.gtable[code[pc++]] = acc;
 // case Op.SetEnv:
@@ -555,7 +556,10 @@ class VM {
 // case Op.SetIndex:
 // case Op.SetThis:
 			case Op.Push:
-				if( acc == null ) throw "assert";
+				#if xneko_strict_value
+				if ( acc == null ) throw "assert";
+				
+				#end
 				stack.push(acc);
 			case Op.Pop:
 				for( i in 0...code[pc++] )
@@ -572,8 +576,8 @@ class VM {
 					var len = stack.length;
 					for (i in 0...nargs)
 					{
+						stack[len - nstack - 1] = stack[len - 1];
 						len--;
-						stack[len - nstack] = stack.pop();
 					}
 					for (i in 0...nstack)
 						stack.pop();
@@ -638,11 +642,12 @@ class VM {
 				
 				#else
 				var b:BoolValue = acc;
-				#if !static
-				if (!Std.is(acc, Bool))
-					b = acc != 0 && acc != null;
-				
-				#end
+					#if !static
+					if (!Std.is(acc, Bool))
+						b = acc != 0 && acc != null;
+					
+					#end
+				acc = b;
 				
 				#end
 			case Op.Not:
@@ -653,8 +658,6 @@ class VM {
 				case VInt(i): VBool(i == 0);
 				default: VBool(false);
 				}
-				
-				acc = !acc 
 				
 				#else
 				var b:BoolValue = acc;
@@ -715,7 +718,18 @@ class VM {
 				acc = a + acc;
 				
 				#end
-// case Op.Sub:
+			case Op.Sub:
+				var a = stack.pop();
+				#if xneko_strict_value
+				throw "TODO";
+				
+				#elseif xneko_strict
+				throw "TODO";
+				
+				#else
+				acc = a - acc;
+				
+				#end
 // case Op.Mult:
 // case Op.Div:
 // case Op.Mod:

@@ -7,18 +7,18 @@ package format.neko.internal;
 class Macro
 {
 
-	macro static function h( s : haxe.macro.Expr ) : haxe.macro.Expr
+	macro public static function h( es : haxe.macro.Expr ) : haxe.macro.Expr
 	{
-		switch( s.expr )
+		switch( es.expr )
 		{
 		case EConst(CString(s)):
 			var h = 0;
 			for( i in 0...s.length )
 				h = (((223 * h) >> 1) + s.charCodeAt(i)) << 1;
 			h = h >> 1;
-			return { expr:EConst(CInt(h + "")), pos:s.pos };
+			return { expr:EConst(CInt(h + "")), pos:es.pos };
 		case _:
-			haxe.macro.Context.error("Constant string expected", s.pos);
+			return haxe.macro.Context.error("Constant string expected", es.pos);
 		}
 	}
 	

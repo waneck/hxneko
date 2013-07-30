@@ -5,6 +5,7 @@ import format.neko.Reader;
 import format.neko.VM;
 import sys.FileSystem;
 import sys.io.File;
+import format.neko.Value.ValueTools.*;
 
 /**
  * ...
@@ -18,7 +19,10 @@ class Main
 	{
 		var d = new Reader(File.read("test.n")).read();
 		var vm = new VM();
-		var md = vm.load(d, vm.defaultLoader());
+		
+		var loader = vm.defaultLoader();
+		loader.fields.set(vm.hashField("args"), VArray(Sys.args().map(vm.wrap)));
+		var md = vm.load(d, loader);
 		trace(md.exports);
 		//md.
 	}
