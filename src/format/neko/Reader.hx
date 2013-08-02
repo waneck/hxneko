@@ -100,8 +100,14 @@ class Reader {
 		return pos;
 	}
 	
-	inline function alloc<T>( size : Int ) : Vector<T> {
+	inline function alloc<T>( size : Int, ?v:T ) : Vector<T> {
+		#if cpp //new Vector seems to not work atm?
+		var arr:Array<T> = [];
+		arr[size - 1] = v;
+		return cast arr;
+		#else
 		return new Vector(size);
+		#end
 	}
 	
 	public function read() : Data {
@@ -137,7 +143,7 @@ class Reader {
 		for( k in 0...nfields )
 			fields[k] = i.readUntil(0);
 		// code
-		var code = alloc(codesize + 2);
+		var code = alloc(codesize + 2, 0);
 		var p = 0;
 		
 		while( p < codesize ) {

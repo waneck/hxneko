@@ -46,6 +46,7 @@ class VM {
 	var vthis : Value;
 	var env : Array<Value>;
 	var stack : Array<Value>;
+	var trap : Int = -1;
 
 	// current module
 	var module : Module;
@@ -212,7 +213,29 @@ class VM {
 			hashField(f);
 		vthis = VNull;
 		env = [];
-		loop(0);
+		var initStack = stack.length;
+		
+		try
+		{
+			loop(0, VNull);
+		}
+		catch (e:Dynamic)
+		{
+			if (trap >= 0 && trap >= initStack)
+			{
+				if (stack.length <= trap)
+					throw 'Invalid trap $trap (${stack.length})';
+				stack.splice(trap, stack.length - trap);
+				this.vthis = stack.pop();
+				this.env = stack.pop();
+				var pc = stack.pop();
+				this.trap = stack.pop();
+				loop(pc, e);
+			} else {
+				// if uncaught or outside init stack, reraise
+				throw e;
+			}
+		}
 		return this.module;
 	}
 
@@ -243,7 +266,7 @@ class VM {
 	function fcall( m : Module, pc : Int) {
 		var old = this.module;
 		this.module = m;
-		var acc = loop(pc);
+		var acc = loop(pc, VNull);
 		this.module = old;
 		return acc;
 	}
@@ -480,8 +503,9 @@ class VM {
 		#end
 	}
 
-	function loop( pc : Int ) {
-		var acc = VNull;
+	function loop( pc : Int, acc:Value ) {
+		
+		//var acc:Value = VNull;
 		var code = module.code.code;
 		while( true ) {
 			var op = code[pc++];
@@ -510,9 +534,11 @@ class VM {
 			case Op.AccEnv:
 				var i = code[pc++];
 				
+				#if debug
 				var env = env;
 				if (env == null || i >= env.length)
 					throw "Reading outside env";
+				#end
 				//trace(dbg.file + "(" + dbg.line + ") " + 'accessing  $env : $i :: ${env[i]}');
 				acc = env[i];
 			case Op.AccField:
@@ -565,13 +591,17 @@ class VM {
 				module.gtable[code[pc++]] = acc;
 			case Op.SetEnv:
 				var i = code[pc++];
+				
+				#if debug
 				var env = env;
 				if (env == null || i >= env.length)
 					throw "Writing outside Env";
 				//trace('setting  $env : $i :: $acc');
+				#end
 				env[i] = acc;
 			case Op.SetField:
 				var obj = stack.pop();
+				
 				#if xneko_strict_value
 				switch( obj ) {
 				case VObject(o): o.fields.set(code[pc++], acc);
@@ -589,9 +619,42 @@ class VM {
 				}
 				
 				#end
-// case Op.SetArray:
-// case Op.SetIndex:
-// case Op.SetThis:
+			case Op.SetArray:
+				var arr = stack.pop();
+				var i = stack.pop();
+				if (is(arr, Array))
+				{
+					var arr2:Array<Dynamic> = arr;
+					var i2:IntValue = i;
+					val_check_int(i2);
+					arr2[i2] = acc;
+				} else if (is(arr, ValueObject)) {
+					var arr:ValueObject = cast arr;
+					var f = arr.fields.get( h("__set") );
+					if (f == null)
+						throw "Unsupported operation";
+					call(arr, f, [i, acc]);
+				} else {
+					arr[i] = acc;
+				}
+			case Op.SetIndex:
+				var i = code[pc++];
+				var arr = stack.pop();
+				if (is(arr, Array))
+				{
+					var arr2:Array<Dynamic> = arr;
+					arr2[i] = acc;
+				} else if (is(arr, ValueObject)) {
+					var arr:ValueObject = cast arr;
+					var f = arr.fields.get( h("__set") );
+					if (f == null)
+						throw "Unsupported operation";
+					call(arr, f, [i, acc]);
+				} else {
+					arr[i] = acc;
+				}
+			case Op.SetThis:
+				vthis = acc;
 			case Op.Push:
 				#if xneko_strict_value
 				if ( acc == null ) throw "assert";
@@ -655,8 +718,22 @@ class VM {
 				
 				#end
 				pc++;
-// case Op.Trap:
-// case Op.EndTrap:
+			case Op.Trap:
+				stack.push(vthis);
+				stack.push(env);
+				stack.push(pc);
+				stack.push(trap);
+				
+				trap = stack.length;
+				
+				pc++;
+			case Op.EndTrap:
+				if (trap != stack.length) throw "Invalid End Trap";
+				trap = stack.pop();
+				stack.pop();
+				stack.pop();
+				stack.pop();
+			
 			case Op.Ret:
 				for( i in 0...code[pc++] )
 					stack.pop();
@@ -792,8 +869,30 @@ class VM {
 				acc = a * acc;
 				
 				#end
-// case Op.Div:
-// case Op.Mod:
+			case Op.Div:
+				var a = stack.pop();
+				#if xneko_strict_value
+				throw "TODO";
+				
+				#elseif xneko_strict
+				throw "TODO";
+				
+				#else
+				acc = a / acc;
+				
+				#end
+			case Op.Mod:
+				var a = stack.pop();
+				#if xneko_strict_value
+				throw "TODO";
+				
+				#elseif xneko_strict
+				throw "TODO";
+				
+				#else
+				acc = a % acc;
+				
+				#end
 			case Op.Shl:
 				var a = stack.pop();
 				#if xneko_strict_value
@@ -806,11 +905,66 @@ class VM {
 				acc = a << acc;
 				
 				#end
-// case Op.Shr:
-// case Op.UShr:
-// case Op.Or:
-// case Op.And:
-// case Op.Xor:
+			case Op.Shr:
+				var a = stack.pop();
+				#if xneko_strict_value
+				throw "TODO";
+				
+				#elseif xneko_strict
+				throw "TODO";
+				
+				#else
+				acc = a >> acc;
+				
+				#end
+			case Op.UShr:
+				var a = stack.pop();
+				#if xneko_strict_value
+				throw "TODO";
+				
+				#elseif xneko_strict
+				throw "TODO";
+				
+				#else
+				acc = a >>> acc;
+				
+				#end
+			case Op.Or:
+				var a = stack.pop();
+				#if xneko_strict_value
+				throw "TODO";
+				
+				#elseif xneko_strict
+				throw "TODO";
+				
+				#else
+				acc = a | acc;
+				
+				#end
+			case Op.And:
+				var a = stack.pop();
+				#if xneko_strict_value
+				throw "TODO";
+				
+				#elseif xneko_strict
+				throw "TODO";
+				
+				#else
+				acc = a & acc;
+				
+				#end
+			case Op.Xor:
+				var a = stack.pop();
+				#if xneko_strict_value
+				throw "TODO";
+				
+				#elseif xneko_strict
+				throw "TODO";
+				
+				#else
+				acc = a ^ acc;
+				
+				#end
 			case Op.Eq:
 				var c = compare(pc, stack.pop(), acc);
 				acc = VBool(c == 0 && c != Builtins.CINVALID);
