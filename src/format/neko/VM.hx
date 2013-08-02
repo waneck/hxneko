@@ -33,6 +33,9 @@ import format.neko.internal.Macro.h;
 import haxe.ds.Vector;
 
 class VM {
+	
+	static inline var s_id = h("__s");
+	static inline var a_id = h("__a");
 
 	// globals
 	var opcodes : Array<Opcode>;
@@ -542,8 +545,14 @@ class VM {
 				//trace(dbg.file + "(" + dbg.line + ") " + 'accessing  $env : $i :: ${env[i]}');
 				acc = env[i];
 			case Op.AccField:
-				acc = getField(acc, code[pc]);
-				if( acc == null ) error(pc, "Invalid field access : " + fieldName(code[pc]));
+				switch(code[pc])
+				{
+				case s_id if (Std.is(acc, String)):
+				case a_id if (Std.is(acc, Array)):
+				default:
+					acc = getField(acc, code[pc]);
+					if( acc == null ) error(pc, "Invalid field access : " + fieldName(code[pc]));
+				}
 				pc++;
 			case Op.AccArray:
 				var arr = stack.pop();
