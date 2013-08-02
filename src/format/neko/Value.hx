@@ -51,6 +51,7 @@ enum ValueFunction {
 	VFun4( f : Value -> Value -> Value -> Value -> Value );
 	VFun5( f : Value -> Value -> Value -> Value -> Value -> Value );
 	VFunVar( f : Array<Value> -> Value );
+	VEnvFun( f : ValueEnvFunction );
 }
 
 typedef ArrayValue<T> = Value;
@@ -93,6 +94,7 @@ class ValueTools
 	public static inline function VFun4( f : Value -> Value -> Value -> Value -> Value ) : ValueFunction return f;
 	public static inline function VFun5( f : Value -> Value -> Value -> Value -> Value -> Value ) : ValueFunction return f;
 	public static inline function VFunVar( f : Array<Value> -> Value ) : ValueFunction return Reflect.makeVarArgs(f);
+	public static inline function VEnvFun( f : ValueEnvFunction ) : ValueFunction return f;
 	
 	public static inline function is( v : Value, c : Class<Dynamic> )
 	{
@@ -105,16 +107,19 @@ class ValueTools
 		#end
 	}
 	
-	public static inline function as<T>( v : Value, c : Class<T> ) : T
+	public static inline function as<T>( v : Dynamic, c : Class<T> ) : T
 	{
-		#if cpp
-		return cast v;
+		//#if cpp
+		//return cast v;
 		
-		#elseif cs
+		#if cs
 		return cs.Lib.as(v, c);
 		
+		#elseif (haxe_ver >= 310)
+		return Std.instance(v, c); //FIXME: not available?
+		
 		#else
-		return Std.instance(v, c);
+		return (Std.is(v, c) ? cast v : null);
 		
 		#end
 	}
@@ -161,6 +166,20 @@ class ValueObject {
 	public function new(?p) {
 		fields = new Map();
 		proto = p;
+	}
+}
+
+class ValueEnvFunction 
+{
+	public var module(default, null):Module;
+	public var func(default, null):ValueFunction;
+	public var env(default, null):Array<Value>;
+	
+	public function new(func, module, env)
+	{
+		this.module = module;
+		this.func = func;
+		this.env = env;
 	}
 }
 

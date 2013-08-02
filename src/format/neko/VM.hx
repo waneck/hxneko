@@ -30,6 +30,7 @@ import format.neko.Data;
 import format.neko.Value;
 import format.neko.Value.ValueTools.*;
 import format.neko.internal.Macro.h;
+import haxe.ds.Vector;
 
 class VM {
 
@@ -54,8 +55,13 @@ class VM {
 		hfields = new Map();
 		opcodes = [];
 		stack = [];
-		for( f in Type.getEnumConstructs(Opcode) )
+		for ( f in Type.getEnumConstructs(Opcode) )
+		{
+			//FIXME java
+			if (StringTools.startsWith(f, "$"))
+				break;
 			opcodes.push(Type.createEnum(Opcode, f));
+		}
 		builtins = new Builtins(this);
 		for( b in builtins.table.keys() )
 			hbuiltins.set(hash(b), builtins.table.get(b));
@@ -95,6 +101,7 @@ class VM {
 		return fid;
 	}
 
+	/*
 	public function _abstract<T>( b : Value, t : Class<T> ) : T {
 		#if xneko_strict_value
 		switch( b ) {
@@ -114,6 +121,7 @@ class VM {
 		
 		#end
 	}
+	*/
 
 	public function valueToString( v : Value ) {
 		return builtins._string(v);
@@ -308,7 +316,23 @@ class VM {
 		var args = [];
 		for( i in 0...nargs )
 			args.unshift(unwrap(stack.pop()));
-		ret = Reflect.callMethod(obj, f, args);
+		
+		var fn:ValueEnvFunction = as(f, ValueEnvFunction);
+		if (fn != null)
+		{
+			var oenv = env, omod = module;
+			env = fn.env;
+			module = fn.module;
+			ret = Reflect.callMethod(obj, fn.func, args);
+			env = oenv;
+			module = omod;
+		} else {
+			#if debug
+			if (!Reflect.isFunction(f))
+				throw 'Expected function. Got $f';
+			#end
+			ret = Reflect.callMethod(obj, f, args);
+		}
 		
 		vthis = old;
 		return ret;
@@ -483,7 +507,14 @@ class VM {
 				acc = stack[stack.length - 2];
 			case Op.AccGlobal:
 				acc = module.gtable[code[pc++]];
-// case Op.AccEnv:
+			case Op.AccEnv:
+				var i = code[pc++];
+				
+				var env = env;
+				if (env == null || i >= env.length)
+					throw "Reading outside env";
+				//trace(dbg.file + "(" + dbg.line + ") " + 'accessing  $env : $i :: ${env[i]}');
+				acc = env[i];
 			case Op.AccField:
 				acc = getField(acc, code[pc]);
 				if( acc == null ) error(pc, "Invalid field access : " + fieldName(code[pc]));
@@ -532,7 +563,13 @@ class VM {
 				stack[stack.length - idx - 1] = acc;
 			case Op.SetGlobal:
 				module.gtable[code[pc++]] = acc;
-// case Op.SetEnv:
+			case Op.SetEnv:
+				var i = code[pc++];
+				var env = env;
+				if (env == null || i >= env.length)
+					throw "Writing outside Env";
+				//trace('setting  $env : $i :: $acc');
+				env[i] = acc;
 			case Op.SetField:
 				var obj = stack.pop();
 				#if xneko_strict_value
@@ -624,7 +661,20 @@ class VM {
 				for( i in 0...code[pc++] )
 					stack.pop();
 				return acc;
-// case Op.MakeEnv:
+			case Op.MakeEnv:
+				var n = code[pc++];
+				var tmp = stack.splice(stack.length - n, n);
+				if (Reflect.isFunction(acc))
+				{
+					var fn = new ValueEnvFunction(acc, this.module, tmp);
+					acc = fn;
+				} else {
+					var fn = as(acc, ValueEnvFunction);
+					if (fn == null)
+						throw "Invalid environment";
+					var fn2 = new ValueEnvFunction(fn.func, fn.module, tmp);
+					acc = fn2;
+				}
 			case Op.MakeArray:
 				var a = new Array();
 				for( i in 0...code[pc++] )
@@ -730,10 +780,32 @@ class VM {
 				acc = a - acc;
 				
 				#end
-// case Op.Mult:
+			case Op.Mult:
+				var a = stack.pop();
+				#if xneko_strict_value
+				throw "TODO";
+				
+				#elseif xneko_strict
+				throw "TODO";
+				
+				#else
+				acc = a * acc;
+				
+				#end
 // case Op.Div:
 // case Op.Mod:
-// case Op.Shl:
+			case Op.Shl:
+				var a = stack.pop();
+				#if xneko_strict_value
+				throw "TODO";
+				
+				#elseif xneko_strict
+				throw "TODO";
+				
+				#else
+				acc = a << acc;
+				
+				#end
 // case Op.Shr:
 // case Op.UShr:
 // case Op.Or:

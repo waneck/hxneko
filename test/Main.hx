@@ -1,6 +1,6 @@
 package ;
 
-import cpp.Lib;
+//import cpp.Lib;
 import format.neko.Reader;
 import format.neko.VM;
 import sys.FileSystem;
