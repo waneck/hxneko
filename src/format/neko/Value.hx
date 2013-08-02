@@ -27,6 +27,8 @@
  */
 package format.neko;
 import format.neko.Data;
+import format.neko.Value.ValueTools.*;
+import format.neko.internal.Macro.h;
 
 #if xneko_strict_value
 enum Value {
@@ -166,6 +168,21 @@ class ValueObject {
 	public function new(?p) {
 		fields = new Map();
 		proto = p;
+	}
+	
+	public function toString():String
+	{
+		var v = this;
+		var r:Value = null;
+		do
+		{
+			r = v.fields.get(h("__string"));
+			if (r != null)
+				return VM.current.call(VObject(this), r, []);
+			v = v.proto;
+		} while (v != null);
+		
+		return "ValueObject";
 	}
 }
 

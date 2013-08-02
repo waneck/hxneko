@@ -34,6 +34,8 @@ import haxe.ds.Vector;
 
 class VM {
 	
+	public static var current(default, null):VM;
+	
 	static inline var s_id = h("__s");
 	static inline var a_id = h("__a");
 
@@ -218,8 +220,10 @@ class VM {
 		env = [];
 		var initStack = stack.length;
 		
+		var old = current;
 		try
 		{
+			current = this;
 			loop(0, VNull);
 		}
 		catch (e:Value)
@@ -236,9 +240,12 @@ class VM {
 				loop(pc, e);
 			} else {
 				// if uncaught or outside init stack, reraise
+				current = old;
 				throw e;
 			}
 		}
+		
+		current = old;
 		return this.module;
 	}
 
@@ -505,6 +512,20 @@ class VM {
 		
 		#end
 	}
+	
+	inline function getFieldObj(v:ValueObject, fid:Int):Value
+	{
+		var r:Value = null;
+		do
+		{
+			r = v.fields.get(fid);
+			if (r != null)
+				break;
+			v = v.proto;
+		} while (v != null);
+		
+		return r;
+	}
 
 	function loop( pc : Int, acc:Value ) {
 		
@@ -639,7 +660,7 @@ class VM {
 					arr2[i2] = acc;
 				} else if (is(arr, ValueObject)) {
 					var arr:ValueObject = cast arr;
-					var f = arr.fields.get( h("__set") );
+					var f = getFieldObj(arr, h("__set") );
 					if (f == null)
 						error(pc, "Unsupported operation");
 					call(arr, f, [i, acc]);
@@ -655,7 +676,7 @@ class VM {
 					arr2[i] = acc;
 				} else if (is(arr, ValueObject)) {
 					var arr:ValueObject = cast arr;
-					var f = arr.fields.get( h("__set") );
+					var f = getFieldObj(arr, h("__set") );
 					if (f == null)
 						error(pc, "Unsupported operation");
 					call(arr, f, [i, acc]);
@@ -851,7 +872,22 @@ class VM {
 				throw "TODO";
 				
 				#else
-				acc = a + acc;
+				if (is(a, ValueObject))
+				{
+					var a:ValueObject = cast a;
+					var add = getFieldObj(a, h("__add"));
+					if (add == null)
+						error(pc, "Invalid operation: +");
+					acc = call(a, add, [acc]);
+				} else if (is(acc, ValueObject)) {
+					var b:ValueObject = cast acc;
+					var add = getFieldObj(b, h("__radd"));
+					if (add == null)
+						error(pc, "Invalid operation: +");
+					acc = call(b, add, [a]);
+				} else {
+					acc = a + acc;
+				}
 				
 				#end
 			case Op.Sub:
