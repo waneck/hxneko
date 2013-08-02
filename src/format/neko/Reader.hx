@@ -27,6 +27,7 @@
  */
 package format.neko;
 import format.neko.Data;
+import haxe.ds.Vector;
 
 class Reader {
 	
@@ -99,10 +100,8 @@ class Reader {
 		return pos;
 	}
 	
-	function alloc<T>( size : Int ) : Array<T> {
-		var a = new Array<T>();
-		if( size > 0 ) a[size-1] = null;
-		return a;
+	inline function alloc<T>( size : Int ) : Vector<T> {
+		return new Vector(size);
 	}
 	
 	public function read() : Data {
@@ -138,7 +137,7 @@ class Reader {
 		for( k in 0...nfields )
 			fields[k] = i.readUntil(0);
 		// code
-		var code = alloc(codesize + 1);
+		var code = alloc(codesize + 2);
 		var p = 0;
 		
 		while( p < codesize ) {

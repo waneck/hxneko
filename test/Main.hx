@@ -6,6 +6,7 @@ import format.neko.VM;
 import sys.FileSystem;
 import sys.io.File;
 import format.neko.Value.ValueTools.*;
+import format.neko.Value;
 
 /**
  * ...
@@ -22,9 +23,14 @@ class Main
 		
 		var loader = vm.defaultLoader();
 		loader.fields.set(vm.hashField("args"), VArray(Sys.args().map(vm.wrap)));
+		loop(d, vm, loader);
+	}
+	
+	static function loop(d, vm:VM, loader )
+	{
+		//var time = Sys.time();
 		var md = vm.load(d, loader);
-		trace(md.exports);
-		//md.
+		//trace(Sys.time() - time);
 	}
 	
 }

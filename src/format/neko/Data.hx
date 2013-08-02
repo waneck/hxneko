@@ -26,6 +26,7 @@
  * DAMAGE.
  */
 package format.neko;
+import haxe.ds.Vector;
 
 extern class Op
 {
@@ -166,7 +167,7 @@ enum Opcode {
 	OTailCall;
 }
 
-typedef DebugInfos = Array<Null<{ file : String, line : Int }>>;
+typedef DebugInfos = Vector<Null<{ file : String, line : Int }>>;
 
 enum Global {
 	GlobalVar( v : String );
@@ -177,7 +178,7 @@ enum Global {
 }
 
 typedef Data = {
-	var globals : Array<Global>;
-	var fields : Array<String>;
-	var code : Array<Int>;
+	var globals : Vector<Global>;
+	var fields : Vector<String>;
+	var code : Vector<Int>;
 }
