@@ -112,14 +112,14 @@ class ValueTools
 		//#if cpp
 		//return cast v;
 		
-		#if cs
+		#if not_working__cs
 		return cs.Lib.as(v, c);
 		
 		#elseif (haxe_ver >= 310)
 		return Std.instance(v, c); //FIXME: not available?
 		
 		#else
-		return (Std.is(v, c) ? cast v : null);
+		return (is(v, c) ? cast v : null);
 		
 		#end
 	}
