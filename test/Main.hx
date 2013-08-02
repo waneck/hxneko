@@ -28,9 +28,9 @@ class Main
 	
 	static function loop(d, vm:VM, loader )
 	{
-		//var time = Sys.time();
+		var time = Sys.time();
 		var md = vm.load(d, loader);
-		//trace(Sys.time() - time);
+		trace(Sys.time() - time);
 	}
 	
 }
