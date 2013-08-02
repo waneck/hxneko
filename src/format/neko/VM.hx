@@ -219,12 +219,12 @@ class VM {
 		{
 			loop(0, VNull);
 		}
-		catch (e:Dynamic)
+		catch (e:Value)
 		{
 			if (trap >= 0 && trap >= initStack)
 			{
 				if (stack.length <= trap)
-					throw 'Invalid trap $trap (${stack.length})';
+					throw VString('Invalid trap $trap (${stack.length})');
 				stack.splice(trap, stack.length - trap);
 				this.vthis = stack.pop();
 				this.env = stack.pop();
@@ -352,7 +352,7 @@ class VM {
 		} else {
 			#if debug
 			if (!Reflect.isFunction(f))
-				throw 'Expected function. Got $f';
+				error(pc,'Expected function. Got $f');
 			#end
 			ret = Reflect.callMethod(obj, f, args);
 		}
@@ -537,7 +537,7 @@ class VM {
 				#if debug
 				var env = env;
 				if (env == null || i >= env.length)
-					throw "Reading outside env";
+					error(pc, "Reading outside env");
 				#end
 				//trace(dbg.file + "(" + dbg.line + ") " + 'accessing  $env : $i :: ${env[i]}');
 				acc = env[i];
@@ -595,7 +595,7 @@ class VM {
 				#if debug
 				var env = env;
 				if (env == null || i >= env.length)
-					throw "Writing outside Env";
+					error(pc, "Writing outside Env");
 				//trace('setting  $env : $i :: $acc');
 				#end
 				env[i] = acc;
@@ -632,7 +632,7 @@ class VM {
 					var arr:ValueObject = cast arr;
 					var f = arr.fields.get( h("__set") );
 					if (f == null)
-						throw "Unsupported operation";
+						error(pc, "Unsupported operation");
 					call(arr, f, [i, acc]);
 				} else {
 					arr[i] = acc;
@@ -648,7 +648,7 @@ class VM {
 					var arr:ValueObject = cast arr;
 					var f = arr.fields.get( h("__set") );
 					if (f == null)
-						throw "Unsupported operation";
+						error(pc, "Unsupported operation");
 					call(arr, f, [i, acc]);
 				} else {
 					arr[i] = acc;
@@ -657,7 +657,7 @@ class VM {
 				vthis = acc;
 			case Op.Push:
 				#if xneko_strict_value
-				if ( acc == null ) throw "assert";
+				if ( acc == null ) error(pc, "assert");
 				
 				#end
 				stack.push(acc);
@@ -728,7 +728,7 @@ class VM {
 				
 				pc++;
 			case Op.EndTrap:
-				if (trap != stack.length) throw "Invalid End Trap";
+				if (trap != stack.length) error(pc, "Invalid End Trap");
 				trap = stack.pop();
 				stack.pop();
 				stack.pop();
@@ -748,7 +748,7 @@ class VM {
 				} else {
 					var fn = as(acc, ValueEnvFunction);
 					if (fn == null)
-						throw "Invalid environment";
+						error(pc, "Invalid environment");
 					var fn2 = new ValueEnvFunction(fn.func, fn.module, tmp);
 					acc = fn2;
 				}
