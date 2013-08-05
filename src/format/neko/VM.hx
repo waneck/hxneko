@@ -1061,8 +1061,30 @@ class VM {
 				acc = new ValueObject(acc);
 				
 				#end
-// case Op.JumpTable:
-// case Op.Apply:
+			case Op.JumpTable:
+				#if xneko_strict_value
+				switch ( acc ) {
+				case VInt(a) if (a < code[pc]):
+					pc += a;
+				default:
+					pc++;
+				}
+				
+				#else
+				if (Std.is(acc, Int))
+				{
+					var a:Int = acc;
+					if (a < code[pc])
+						pc += a;
+					else
+						pc++;
+				} else {
+					pc++;
+				}
+				
+				#end
+			case Op.Apply:
+				throw "TODO: OApply. Need to implement nargs before";
 			case Op.PhysCompare:
 				error(pc, "$pcompare");
 			case Op.Loop:
@@ -1078,7 +1100,6 @@ class VM {
 				}
 				acc = VArray(a);
 			default:
-				trace(code[pc - 1]);
 				throw "TODO:" + opcodes[code[pc - 1]];
 			}
 		}
