@@ -21,7 +21,7 @@ class Main
 		var d = new Reader(File.read("test.n")).read();
 		var vm = new VM();
 		
-		var loader = vm.defaultLoader();
+		var loader = vm.globalLoader();
 		loader.fields.set(vm.hashField("args"), VArray(Sys.args().map(vm.wrap)));
 		loop(d, vm, loader);
 	}

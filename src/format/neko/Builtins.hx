@@ -51,6 +51,8 @@ class Builtins {
 		b("amake", VFun1(amake));
 		b("acopy", VFun1(acopy));
 		b("asize", VFun1(asize));
+		b("asub", VFun3(asub));
+		b("ablit", VFun5(ablit));
 		
 		b("int", VFun1(int));
 		b("objcall", VFun3(objcall));
@@ -352,6 +354,48 @@ class Builtins {
 		return a2.length;
 		
 		#end
+	}
+	
+	public function asub( a : ArrayValue<Value>, p : IntValue, l : IntValue )
+	{
+		#if xneko_strict_value
+		switch[a, p, l]
+		{
+			case [VArray(a), VInt(p), VInt(l)]:
+				return a.slice(p, p + l);
+			default:
+				throw "$asub";
+		}
+		
+		#else
+		
+		return a.slice(p, p + l);
+		#end
+	}
+	
+	public function ablit<T>( dest : ArrayValue<T>, destPos : IntValue, src : ArrayValue<T>, srcPos : IntValue, len : IntValue ) : Value
+	{
+		#if xneko_strict_value
+		switch[dest, destPos, src, srcPos, len]
+		{
+			case [VArray(dest), VInt(destPos), VArray(src), VInt(srcPos), VInt(len)]:
+				for (i in 0...len)
+				{
+					dest[destPos + i] = src[srcPos + i];
+				}
+			default:
+				throw "$ablit";
+		}
+		
+		#else
+		
+		for (i in 0...len)
+		{
+			dest[destPos + i] = src[srcPos + i];
+		}
+		#end
+		
+		return null;
 	}
 		
 	public function typeof( o : Value ) : Value {

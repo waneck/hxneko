@@ -161,9 +161,44 @@ class VM {
 
 	public function defaultLoader() {
 		var loader = new ValueObject(null);
-		loader.fields.set(hash("loadprim"), VFunction(VFun2(loadPrim)));
+		loader.fields.set(h("loadprim"), VFunction(VFun2(loadPrim)));
 		return loader;
 	}
+	
+	#if (neko || cpp)
+	public function globalLoader()
+	{
+		var loader = new ValueObject(null);
+		loader.fields.set(h("loadprim"), VFunction(VFun2(function (vprim : Value, vargs : Value ) 
+		{
+			var prim:String, nargs:Int;
+			#if xneko_strict_value
+			switch( vprim ) {
+			case VString(s): prim = s;
+			default: return null;
+			}
+			switch(vargs) {
+			case VInt(n): nargs = n;
+			default: return null;
+			}
+			
+			#else
+			val_check_string(vprim);
+			val_check_int(vargs);
+			prim = vprim; nargs = vargs;
+			
+			#end
+			#if cpp
+			return wrap(cpp.Lib.load(prim.split("@")[0], prim.split("@")[1], nargs));
+			
+			#else
+			return wrap(neko.Lib.load(prim.split("@")[0], prim.split("@")[1], nargs));
+			
+			#end
+		} )));
+		return loader;
+	}
+	#end
 
 	public function load( m : Data, ?loader : ValueObject ) {
 		if( loader == null ) loader = defaultLoader();
@@ -390,15 +425,15 @@ class VM {
 		}
 		return acc;
 		
-		#elseif (cpp || java || cs || neko || !xneko_strict) //already calls __get
-		return acc[index];
-		
 		#else
-		var arr = as(acc, Array);
-		if (arr == null)
-			throw "TODO";
-		return arr[index];
-		
+		var arr2:ValueObject = as(acc, ValueObject);
+		if (arr2 != null)
+		{
+			var fn = getFieldObj(arr2, h("__get"));
+			return call(arr2, fn, [index]);
+		} else {
+			return acc[index];
+		}
 		#end
 	}
 
@@ -573,8 +608,8 @@ class VM {
 				case s_id if (Std.is(acc, String)):
 				case a_id if (Std.is(acc, Array)):
 				default:
-					acc = getField(acc, code[pc]);
 					if( acc == null ) error(pc, "Invalid field access : " + fieldName(code[pc]));
+					acc = getField(acc, code[pc]);
 				}
 				pc++;
 			case Op.AccArray:
