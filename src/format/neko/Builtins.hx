@@ -49,6 +49,8 @@ class Builtins {
 		b("ssize", VFun1(ssize));
 		b("array", VFunVar(array));
 		b("amake", VFun1(amake));
+		b("acopy", VFun1(acopy));
+		b("asize", VFun1(asize));
 		
 		b("int", VFun1(int));
 		b("objcall", VFun3(objcall));
@@ -306,6 +308,48 @@ class Builtins {
 		var arr = [];
 		for (i in 0...s) arr.push(null);
 		return VArray(arr);
+		
+		#end
+	}
+	
+	public function acopy( a : ArrayValue<Value> ) : Value
+	{
+		#if xneko_strict_value
+		switch(a)
+		{
+			case VArray(a):
+				return VArray(a.copy());
+			default:
+				throw 'Array value expected; Got $a';
+		}
+		
+		#else
+		val_check_array(a);
+		var a2 = as(a, Array);
+		if (a2 == null)
+			throw 'Array value expected; Got $a';
+		return a2.copy();
+		
+		#end
+	}
+	
+	public function asize( a : ArrayValue<Value> ) : IntValue
+	{
+		#if xneko_strict_value
+		switch(a)
+		{
+			case VArray(a):
+				return VInt(a.length);
+			default:
+				throw 'Array value expected; Got $a';
+		}
+		
+		#else
+		val_check_array(a);
+		var a2 = as(a, Array);
+		if (a2 == null)
+			throw 'Array value expected; Got $a';
+		return a2.length;
 		
 		#end
 	}

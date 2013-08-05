@@ -71,8 +71,8 @@ class VM {
 		builtins = new Builtins(this);
 		for( b in builtins.table.keys() )
 			hbuiltins.set(hash(b), builtins.table.get(b));
-		hloader = hash("loader");
-		hexports = hash("exports");
+		hloader = h("loader");
+		hexports = h("exports");
 	}
 
 	function hash( s : String ) {
@@ -545,6 +545,8 @@ class VM {
 			case Op.AccThis:
 				acc = vthis;
 			case Op.AccInt:
+				acc = VInt(code[pc++]);
+			case Op.AccInt32:
 				acc = VInt(code[pc++]);
 			case Op.AccStack:
 				var idx = code[pc++];
@@ -1063,7 +1065,20 @@ class VM {
 // case Op.Apply:
 			case Op.PhysCompare:
 				error(pc, "$pcompare");
+			case Op.Loop:
+				// space for GC/Debug
+			case Op.MakeArray2:
+				// similar to MakeArray but will keep a correct evaluation order
+				var a = new Array();
+				var n = code[pc++];
+				a[n] = acc;
+				while (n > 0)
+				{
+					a[--n] = stack.pop();
+				}
+				acc = VArray(a);
 			default:
+				trace(code[pc - 1]);
 				throw "TODO:" + opcodes[code[pc - 1]];
 			}
 		}

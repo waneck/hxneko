@@ -96,6 +96,10 @@ extern class Op
 	public static inline var AccIndex1 =	61;
 	public static inline var PhysCompare =	62;
 	public static inline var TailCall =		63;
+	//neko v2 bytecodes
+	public static inline var Loop = 		64;
+	public static inline var MakeArray2 = 	65;
+	public static inline var AccInt32 = 	66;
 }
 
 enum Opcode {
@@ -165,6 +169,10 @@ enum Opcode {
 	OAccIndex1;
 	OPhysCompare;
 	OTailCall;
+	//neko v2 bytecodes
+	OLoop;
+	OMakeArray2;
+	OAccInt32;
 }
 
 typedef DebugInfos = Vector<Null<{ file : String, line : Int }>>;
