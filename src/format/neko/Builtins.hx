@@ -57,6 +57,7 @@ class Builtins {
 		b("int", VFun1(int));
 		b("objcall", VFun3(objcall));
 		b("objget", VFun2(objget));
+		b("hnew", VFun1(hnew));
 	}
 	
 	// -------- HELPERS ---------------------
@@ -154,10 +155,10 @@ class Builtins {
 		return (a == b) ? 0 : CINVALID;
 		
 		#elseif xneko_strict
-		return (is(a, ValueObject) && is(b, ValueObject)) ? (a == b || objcall(a, h("__compare__"), [b])) : Reflect.compare(a, b);
+		return (a == b ? 0 : (is(a, ValueObject) && is(b, ValueObject)) ? (objcall(a, h("__compare"), [b])) : Reflect.compare(a, b));
 		
 		#else
-		return Reflect.compare(a, b);
+		return (a == b ? 0 : (is(a, ValueObject)) ? (objcall(a, h("__compare"), [b])) : Reflect.compare(a, b));
 		
 		#end
 	}
@@ -472,4 +473,8 @@ class Builtins {
 		#end
 	}
 	
+	
+	function hnew( size : Value ) : Value {
+		return VProxy(new Map<String, Dynamic>());
+	}
 }

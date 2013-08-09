@@ -18,7 +18,7 @@ class Main
 	
 	static function main() 
 	{
-		var d = new Reader(File.read("test.n")).read();
+		var d = new Reader(File.read("index.n")).read();
 		var vm = new VM();
 		
 		var loader = vm.globalLoader();

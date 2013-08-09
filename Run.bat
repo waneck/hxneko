@@ -1,5 +1,5 @@
 @echo off
 cd bin
-Main-debug.exe
-REM neko main
+REM Main-debug.exe
+neko neko
 pause

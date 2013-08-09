@@ -183,21 +183,67 @@ class VM {
 			}
 			
 			#else
-			val_check_string(vprim);
 			val_check_int(vargs);
-			prim = vprim; nargs = vargs;
+			prim = builtins._string(vprim); nargs = vargs;
 			
 			#end
 			#if cpp
 			return wrap(cpp.Lib.load(prim.split("@")[0], prim.split("@")[1], nargs));
 			
 			#else
-			return wrap(neko.Lib.load(prim.split("@")[0], prim.split("@")[1], nargs));
+			var ret = wrap(neko.Lib.load(prim.split("@")[0], prim.split("@")[1], nargs));
+			if (ret != null)
+			{
+				return Reflect.makeVarArgs(function (arr:Array<Dynamic>) {
+					for (i in 0...arr.length)
+					{
+						arr[i] = neko.Lib.haxeToNeko(arr[i]);
+					}
+					return nekoToHaxe(Reflect.callMethod(null, ret, arr));
+				});
+			} else {
+				return null;
+			}
 			
 			#end
 		} )));
 		return loader;
 	}
+	
+	#if neko
+	static function nekoToHaxe( v : Dynamic ) : Dynamic untyped {
+		switch( __dollar__typeof(v) ) {
+		case 0: return v;
+		case 1: return v;
+		case 2: return v;
+		case 3: return v;
+		case 4: return new String(v);
+		case 6:
+			var a = Array.new1(v,__dollar__asize(v));
+			for( i in 0...a.length )
+				a[i] = nekoToHaxe(a[i]);
+			return a;
+		case 5:
+			var f = __dollar__objfields(v);
+			var i = 0;
+			var l = __dollar__asize(f);
+			var o = __dollar__new(v);
+			if( __dollar__objgetproto(v) != null )
+				throw "Can't convert object prototype";
+			while( i < l ) {
+				__dollar__objset(o,f[i],nekoToHaxe(__dollar__objget(v,f[i])));
+				i += 1;
+			}
+			return o;
+		case 8:
+			return v;
+		case i:
+			trace(i);
+			throw "Can't convert "+v;
+		}
+	}
+	#end
+	
 	#end
 
 	public function load( m : Data, ?loader : ValueObject ) {
@@ -243,8 +289,19 @@ class VM {
 					me.stack.push(e);
 					return me.fcall(mod, pos);
 				});
+				case -1: VFunVar(function(arr) {
+					for (a in arr)
+						me.stack.push(a);
+					return me.fcall(mod, pos);
+				});
 				default:
-					throw "assert";
+					VFunVar(function(arr) {
+						if (arr.length != nargs) throw 'Invalid call: $nargs (${arr.length})';
+						for (a in arr)
+							me.stack.push(a);
+						return me.fcall(mod, pos);
+					});
+					//throw 'assert: $nargs';
 			});
 			case GlobalDebug(debug): module.debug = debug; VNull;
 			};
@@ -265,18 +322,25 @@ class VM {
 		{
 			if (trap >= 0 && trap >= initStack)
 			{
-				if (stack.length <= trap)
+				if (stack.length < trap)
+				{
 					throw VString('Invalid trap $trap (${stack.length})');
+				}
 				stack.splice(trap, stack.length - trap);
-				this.vthis = stack.pop();
-				this.env = stack.pop();
-				var pc = stack.pop();
+				
 				this.trap = stack.pop();
+				var pc = stack.pop();
+				this.env = stack.pop();
+				this.vthis = stack.pop();
 				loop(pc, e);
 			} else {
 				// if uncaught or outside init stack, reraise
 				current = old;
+				#if neko
+				neko.Lib.rethrow(e);
+				#else
 				throw e;
+				#end
 			}
 		}
 		
@@ -566,10 +630,10 @@ class VM {
 		
 		//var acc:Value = VNull;
 		var code = module.code.code;
-		while( true ) {
+		while ( true ) {
 			var op = code[pc++];
-			//var dbg = module.debug[pc];
-			//if( dbg != null ) trace(dbg.file + "(" + dbg.line + ") " + opcodes[op]+ " " +stack.length);
+			var dbg = module.debug[pc];
+			if ( dbg != null ) trace(dbg.file + "(" + dbg.line + ") " + opcodes[op] + " " +stack.length);
 			switch( op ) {
 			case Op.AccNull:
 				acc = VNull;
