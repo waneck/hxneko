@@ -1191,7 +1191,7 @@ class VM {
 						pc += a;
 						trace(pc);
 					} else {
-						pc = code[pc] + 1;
+						pc += code[pc];
 					}
 				} else {
 					pc++;
