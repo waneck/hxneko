@@ -108,7 +108,8 @@ class VM {
 	}
 
 	/*
-	public function _abstract<T>( b : Value, t : Class<T> ) : T {
+	public function _abstract<T>( b : Value, t : Class<T> ) : T 
+	{
 		#if xneko_strict_value
 		switch( b ) {
 		case VAbstract(v):
@@ -667,6 +668,7 @@ class VM {
 				//trace(dbg.file + "(" + dbg.line + ") " + 'accessing  $env : $i :: ${env[i]}');
 				acc = env[i];
 			case Op.AccField:
+				trace(hfields.get(code[pc]));
 				switch(code[pc])
 				{
 				case s_id if (Std.is(acc, String)):
@@ -719,7 +721,15 @@ class VM {
 				var idx = code[pc++];
 				stack[stack.length - idx - 1] = acc;
 			case Op.SetGlobal:
-				module.gtable[code[pc++]] = acc;
+				switch(module.code.globals[code[pc]])
+				{
+				//FIXME: implement a override table for that
+				case GlobalVar("String"):
+					module.gtable[code[pc++]] = module.loader.fields.get(h("String"));
+				default:
+					module.gtable[code[pc++]] = acc;
+				}
+				
 			case Op.SetEnv:
 				var i = code[pc++];
 				
@@ -1170,13 +1180,19 @@ class VM {
 				}
 				
 				#else
+				trace(acc, code[pc]);
 				if (Std.is(acc, Int))
 				{
 					var a:Int = acc;
 					if (a < code[pc])
+					{
+						trace("here");
+						trace(pc);
 						pc += a;
-					else
-						pc++;
+						trace(pc);
+					} else {
+						pc = code[pc] + 1;
+					}
 				} else {
 					pc++;
 				}

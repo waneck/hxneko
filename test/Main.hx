@@ -19,9 +19,22 @@ class Main
 	static function main() 
 	{
 		var d = new Reader(File.read("index.n")).read();
+		//trace(d.globals);
+		//trace(d.fields)
+		//for (i in 0...d.globals.length)
+		//{
+			//switch(d.globals[i])
+			//{
+			//case GlobalVar("String"):
+				//d.globals[i] = GlobalVar("_String");
+				//break;
+			//default:
+			//}
+		//}
 		var vm = new VM();
 		
 		var loader = vm.globalLoader();
+		loader.fields.set(vm.hashField("String"), { "new": function(s) return s } );
 		loader.fields.set(vm.hashField("args"), VArray(Sys.args().map(vm.wrap)));
 		loop(d, vm, loader);
 	}

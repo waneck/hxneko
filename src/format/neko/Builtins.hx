@@ -58,6 +58,9 @@ class Builtins {
 		b("objcall", VFun3(objcall));
 		b("objget", VFun2(objget));
 		b("hnew", VFun1(hnew));
+		b("hset", VFun4(hset));
+		b("sget", VFun2(sget));
+		b("throw", VFun1(_throw));
 	}
 	
 	// -------- HELPERS ---------------------
@@ -476,5 +479,55 @@ class Builtins {
 	
 	function hnew( size : Value ) : Value {
 		return VProxy(new Map<String, Dynamic>());
+	}
+	
+	function hset( hash : Value, str : StringValue, val : Value, cmp : Value ) : Value
+	{
+		#if xneko_strict_value
+		switch[hash,str,cmp] {
+		case [VProxy(h), VString(s), VNull] :
+			var h:Map<String,Value> = h;
+			h.set(s, val);
+			return VNull;
+		default:
+			throw "$hset";
+			return null;
+		}
+		
+		#else
+		if (cmp != null) throw "$hset";
+		val_check_string(str);
+		var h:Map<String,Value> = hash;
+		h.set(str, val);
+		
+		return null;
+		
+		#end
+	}
+	
+	function sget( s : StringValue, idx : IntValue ) : Value
+	{
+		#if xneko_strict_value
+		switch[s,idx] {
+		case [VString(s), VInt(idx)] :
+			var ret = s.charCodeAt(idx);
+			if (ret == null)
+				return VNull;
+			return VInt(ret);
+		default:
+			throw "$hset";
+			return null;
+		}
+		
+		#else
+		trace(s, idx);
+		return s.charCodeAt(idx);
+		
+		#end
+	}
+	
+	function _throw( v : Value ) : Value
+	{
+		return throw v;
 	}
 }
