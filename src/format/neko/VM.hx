@@ -38,6 +38,10 @@ class VM {
 	
 	static inline var s_id = h("__s");
 	static inline var a_id = h("__a");
+	static inline var new_id = h("new");
+	static inline var cls_id = h("__class__");
+	static inline var super_id = h("__super__");
+	static inline var name_id = h("__name__");
 
 	// globals
 	var opcodes : Array<Opcode>;
@@ -198,6 +202,11 @@ class VM {
 				return Reflect.makeVarArgs(function (arr:Array<Dynamic>) {
 					for (i in 0...arr.length)
 					{
+						trace(arr[i]);
+						trace(Std.is(arr[i], ValueObject));
+						for (f in Reflect.fields(arr[i]))
+							trace(f);
+						trace(Type.getClassName(Type.getClass(arr[i])));
 						arr[i] = neko.Lib.haxeToNeko(arr[i]);
 					}
 					return nekoToHaxe(Reflect.callMethod(null, ret, arr));
@@ -374,9 +383,11 @@ class VM {
 	}
 
 	function fcall( m : Module, pc : Int) {
+		trace("fcall");
 		var old = this.module;
 		this.module = m;
 		var acc = loop(pc, VNull);
+		trace("fcall end");
 		this.module = old;
 		return acc;
 	}
@@ -634,7 +645,7 @@ class VM {
 		while ( true ) {
 			var op = code[pc++];
 			var dbg = module.debug[pc];
-			if ( dbg != null ) trace(dbg.file + "(" + dbg.line + ") " + opcodes[op] + " " +stack.length);
+			if ( dbg != null ) trace(dbg.file + "(" + dbg.line + ") " + opcodes[op] + " " +stack.length + "@" + pc);
 			switch( op ) {
 			case Op.AccNull:
 				acc = VNull;
@@ -673,9 +684,29 @@ class VM {
 				{
 				case s_id if (Std.is(acc, String)):
 				case a_id if (Std.is(acc, Array)):
+				case new_id, super_id , cls_id if (Std.is(acc, Class)):
+					switch(code[pc])
+					{
+					case new_id:
+						var cl = acc;
+						acc = Reflect.makeVarArgs(function(args) {
+							return Type.createInstance(cl, args);
+						});
+					case super_id:
+						acc = Type.getSuperClass(acc);
+					default:
+					}
 				default:
+					if (Std.is(acc, ValueObject)) {
+						trace("here");
+						//for (k in cast(acc, ValueObject).fields.keys())
+						{
+							//trace('${code[pc]} - $k : ${fieldName(k)} (${acc.fields.get(k) == null})');
+						}
+					}
 					if( acc == null ) error(pc, "Invalid field access : " + fieldName(code[pc]));
 					acc = getField(acc, code[pc]);
+					//trace(acc);
 				}
 				pc++;
 			case Op.AccArray:
@@ -755,6 +786,8 @@ class VM {
 				if (o2 != null)
 				{
 					o2.fields.set(code[pc++], acc); //FIXME: check for references on prototype
+				} else if (Std.is(obj, Class)) {
+					pc++; //FIXME
 				} else {
 					Reflect.setField(obj, fieldName(code[pc++]), acc);
 				}
@@ -826,9 +859,11 @@ class VM {
 				return mcall(pc, vthis, acc, nargs);
 			case Op.Call:
 				acc = mcall(pc, vthis, acc, code[pc]);
+				trace(acc == null);
 				pc++;
 			case Op.ObjCall:
 				acc = mcall(pc, stack.pop(), acc, code[pc]);
+				trace(acc == null);
 				pc++;
 			case Op.Jump:
 				pc += code[pc] - 1;
@@ -878,6 +913,7 @@ class VM {
 			case Op.Ret:
 				for( i in 0...code[pc++] )
 					stack.pop();
+				trace(acc == null);
 				return acc;
 			case Op.MakeEnv:
 				var n = code[pc++];
@@ -1186,12 +1222,14 @@ class VM {
 					var a:Int = acc;
 					if (a < code[pc])
 					{
-						trace("here");
-						trace(pc);
-						pc += a;
-						trace(pc);
+						trace('here $pc - $a');
+						for (i in 0...(a*2))
+						{
+							//trace(opcodes[code[pc + i]] + ": " + code[pc + i] + (opcodes[code[pc+i]] == null ? '(${code[pc + i] + pc + i })' : ''));
+						}
+						pc += a * 2 + 1;
 					} else {
-						pc += code[pc];
+						pc++;
 					}
 				} else {
 					pc++;

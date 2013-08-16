@@ -34,7 +34,8 @@ class Main
 		var vm = new VM();
 		
 		var loader = vm.globalLoader();
-		loader.fields.set(vm.hashField("String"), { "new": function(s) return s } );
+		loader.fields.set(vm.hashField("String"), String );
+		//loader.fields.set(vm.hashField("Std"), { "new": function(s) return s } );
 		loader.fields.set(vm.hashField("args"), VArray(Sys.args().map(vm.wrap)));
 		loop(d, vm, loader);
 	}
