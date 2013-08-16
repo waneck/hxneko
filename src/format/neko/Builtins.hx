@@ -51,14 +51,17 @@ class Builtins {
 		b("amake", VFun1(amake));
 		b("acopy", VFun1(acopy));
 		b("asize", VFun1(asize));
+		b("fasthash", VFun1(fasthash));
 		b("asub", VFun3(asub));
 		b("ablit", VFun5(ablit));
 		
 		b("int", VFun1(int));
 		b("objcall", VFun3(objcall));
 		b("objget", VFun2(objget));
+		b("objset", VFun3(objset));
 		b("hnew", VFun1(hnew));
 		b("hset", VFun4(hset));
+		b("hmem", VFun3(hmem));
 		b("sget", VFun2(sget));
 		b("throw", VFun1(_throw));
 	}
@@ -162,6 +165,49 @@ class Builtins {
 		
 		#else
 		return (a == b ? 0 : (is(a, ValueObject)) ? (objcall(a, h("__compare"), [b])) : Reflect.compare(a, b));
+		
+		#end
+	}
+	
+	public function objset( o : Value, f : IntValue, v : Value) : Value
+	{
+		#if xneko_strict_value
+		switch[o, f] {
+		case [VObject(obj), VInt(fid)]:
+			obj.fields.set(fid, v);
+			return v;
+		case [VProxy(obj), VInt(fid)]:
+			Reflect.setField(o, vm.fieldName(fid), vm.unwrap(v));
+		default:
+			return VNull; //keep dot access
+		}
+		
+		#elseif xneko_strict
+		var obj = as(o, ValueObject);
+		if (obj != null)
+		{
+			obj.fields.set(f, v);
+			return v;
+		} else {
+			if (Reflect.isObject(o))
+			{
+				Reflect.setField(o, vm.fieldName(f), v);
+				return v;
+			} else {
+				return null;
+			}
+		}
+		
+		#else
+		var obj = as(o, ValueObject);
+		if (obj != null)
+		{
+			obj.fields.set(f, v);
+			return v;
+		} else {
+			Reflect.setField(o, vm.fieldName(f), v);
+			return v;
+		}
 		
 		#end
 	}
@@ -505,6 +551,27 @@ class Builtins {
 		#end
 	}
 	
+	function hmem( hash : Value, str : StringValue, cmp : Value ) : Value
+	{
+		#if xneko_strict_value
+		switch[hash,str,cmp] {
+		case [VProxy(h), VString(s), VNull] :
+			var h:Map<String,Value> = h;
+			return VBool(h.exists(s));
+		default:
+			throw "$hmem";
+			return null;
+		}
+		
+		#else
+		if (cmp != null) throw "$hmem";
+		val_check_string(str);
+		var h:Map<String,Value> = hash;
+		return h.exists(str);
+		
+		#end
+	}
+	
 	function sget( s : StringValue, idx : IntValue ) : Value
 	{
 		#if xneko_strict_value
@@ -522,6 +589,23 @@ class Builtins {
 		#else
 		trace(s, idx);
 		return s.charCodeAt(idx);
+		
+		#end
+	}
+	
+	function fasthash( s : StringValue ) : IntValue
+	{
+		#if xneko_strict_value
+		switch (s) {
+		case VString(s):
+			return VInt(VM.hash(s));
+		default:
+			throw "$hset";
+			return null;
+		}
+		
+		#else
+		return VM.hash(s);
 		
 		#end
 	}

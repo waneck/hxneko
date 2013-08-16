@@ -79,7 +79,7 @@ class VM {
 		hexports = h("exports");
 	}
 
-	function hash( s : String ) {
+	public static function hash( s : String ) {
 		var h = 0;
 		#if (neko_v2 || !haxe3)
 		for( i in 0...s.length )
@@ -371,7 +371,7 @@ class VM {
 		throw VString(pos+" : "+msg);
 	}
 
-	function fieldName( fid : Int ) {
+	public function fieldName( fid : Int ) {
 		var name = hfields.get(fid);
 		return (name == null) ? "?" + fid : name;
 	}
