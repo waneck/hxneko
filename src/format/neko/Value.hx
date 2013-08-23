@@ -163,11 +163,23 @@ class ValueTools
 }
 
 class ValueObject {
+	static var ids = 0;
 	public var fields : Map<Int,Value>;
 	public var proto : Null<ValueObject>;
-	public function new(?p) {
+	var id:Int;
+	public function new(?p:ValueObject) {
 		fields = new Map();
-		proto = p;
+		if (p != null)
+		{
+			for (f in p.fields.keys())
+				fields.set(f, p.fields.get(f));
+		}
+		id = ids++;
+	}
+	
+	public function sig():String
+	{
+		return "ValueObject#" + id + ": " + [for (f in fields.keys()) VM.current.fieldName(f)];
 	}
 	
 	public function toString():String
@@ -182,7 +194,7 @@ class ValueObject {
 			v = v.proto;
 		} while (v != null);
 		
-		return "ValueObject";
+		return "ValueObject#" + id;
 	}
 }
 

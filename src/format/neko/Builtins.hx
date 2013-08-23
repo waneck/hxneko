@@ -61,6 +61,7 @@ class Builtins {
 		b("objset", VFun3(objset));
 		b("hnew", VFun1(hnew));
 		b("hset", VFun4(hset));
+		b("hget", VFun3(hget));
 		b("hmem", VFun3(hmem));
 		b("sget", VFun2(sget));
 		b("throw", VFun1(_throw));
@@ -547,6 +548,27 @@ class Builtins {
 		h.set(str, val);
 		
 		return null;
+		
+		#end
+	}
+	
+	function hget( hash : Value, str : StringValue, cmp : Value ) : Value
+	{
+		#if xneko_strict_value
+		switch[hash,str,cmp] {
+		case [VProxy(h), VString(s), VNull] :
+			var h:Map<String,Value> = h;
+			return vm.wrap(h.get(s));
+		default:
+			throw "$hset";
+			return null;
+		}
+		
+		#else
+		if (cmp != null) throw "$hset";
+		val_check_string(str);
+		var h:Map<String,Value> = hash;
+		return h.get(str);
 		
 		#end
 	}

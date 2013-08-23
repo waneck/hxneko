@@ -207,7 +207,7 @@ class VM {
 						for (f in Reflect.fields(arr[i]))
 							trace(f);
 						trace(Type.getClassName(Type.getClass(arr[i])));
-						arr[i] = neko.Lib.haxeToNeko(arr[i]);
+						arr[i] = haxeToNeko(arr[i]);
 					}
 					return nekoToHaxe(Reflect.callMethod(null, ret, arr));
 				});
@@ -221,6 +221,38 @@ class VM {
 	}
 	
 	#if neko
+	static function haxeToNeko( v : Dynamic ) : Dynamic untyped {
+		switch( __dollar__typeof(v) ) {
+		case 0: return v;
+		case 1: return v;
+		case 2: return v;
+		case 3: return v;
+		case 5:
+			var cl = v.__class__;
+			if( cl == String )
+				return v.__s;
+			if( cl == Array ) {
+				var a = untyped __dollar__amake(v.length);
+				for( i in 0...v.length )
+					a[i] = haxeToNeko(v[i]);
+				return a;
+			}
+			if( cl != null || __dollar__objgetproto(v) != null )
+				throw "Can't convert "+string(v);
+			var f = __dollar__objfields(v);
+			var i = 0;
+			var l = __dollar__asize(f);
+			var o = __dollar__new(v);
+			while( i < l ) {
+				__dollar__objset(o,f[i],haxeToNeko(__dollar__objget(v,f[i])));
+				i += 1;
+			}
+			return o;
+		default:
+			return v;
+		}
+	}
+	
 	static function nekoToHaxe( v : Dynamic ) : Dynamic untyped {
 		switch( __dollar__typeof(v) ) {
 		case 0: return v;
@@ -267,24 +299,29 @@ class VM {
 			case GlobalString(s): VString(s);
 			case GlobalFunction(pos, nargs): VFunction(switch( nargs ) {
 				case 0: VFun0(function() {
+					trace(stack.length);
 					return me.fcall(mod, pos);
 				});
 				case 1: VFun1(function(a) {
+					trace(stack.length);
 					me.stack.push(a);
 					return me.fcall(mod, pos);
 				});
 				case 2: VFun2(function(a, b) {
+					trace(stack.length);
 					me.stack.push(a);
 					me.stack.push(b);
 					return me.fcall(mod, pos);
 				});
 				case 3: VFun3(function(a, b, c) {
+					trace(stack.length);
 					me.stack.push(a);
 					me.stack.push(b);
 					me.stack.push(c);
 					return me.fcall(mod, pos);
 				});
 				case 4: VFun4(function(a, b, c, d) {
+					trace(stack.length);
 					me.stack.push(a);
 					me.stack.push(b);
 					me.stack.push(c);
@@ -292,6 +329,7 @@ class VM {
 					return me.fcall(mod, pos);
 				});
 				case 5: VFun5(function(a, b, c, d, e) {
+					trace(stack.length);
 					me.stack.push(a);
 					me.stack.push(b);
 					me.stack.push(c);
@@ -300,12 +338,14 @@ class VM {
 					return me.fcall(mod, pos);
 				});
 				case -1: VFunVar(function(arr) {
+					trace(stack.length);
 					for (a in arr)
 						me.stack.push(a);
 					return me.fcall(mod, pos);
 				});
 				default:
 					VFunVar(function(arr) {
+						trace(stack.length);
 						if (arr.length != nargs) throw 'Invalid call: $nargs (${arr.length})';
 						for (a in arr)
 							me.stack.push(a);
@@ -332,6 +372,7 @@ class VM {
 		{
 			if (trap >= 0 && trap >= initStack)
 			{
+				trace('caught exception: $e');
 				if (stack.length < trap)
 				{
 					throw VString('Invalid trap $trap (${stack.length})');
@@ -342,6 +383,7 @@ class VM {
 				var pc = stack.pop();
 				this.env = stack.pop();
 				this.vthis = stack.pop();
+				
 				loop(pc, e);
 			} else {
 				// if uncaught or outside init stack, reraise
@@ -383,11 +425,11 @@ class VM {
 	}
 
 	function fcall( m : Module, pc : Int) {
-		trace("fcall");
+		trace("fcall " + stack.length);
 		var old = this.module;
 		this.module = m;
 		var acc = loop(pc, VNull);
-		trace("fcall end");
+		trace("fcall end " + stack.length);
 		this.module = old;
 		return acc;
 	}
@@ -506,6 +548,9 @@ class VM {
 		if (arr2 != null)
 		{
 			var fn = getFieldObj(arr2, h("__get"));
+			trace(fn);
+			for (h in arr2.fields.keys()) trace(fieldName(h));
+			trace(arr2.fields.get(h("h")) == acc);
 			return call(arr2, fn, [index]);
 		} else {
 			return acc[index];
@@ -661,6 +706,9 @@ class VM {
 				acc = VInt(code[pc++]);
 			case Op.AccStack:
 				var idx = code[pc++];
+				if (stack.length - idx - 3 < 0)
+					throw "Invalid stack access: " + idx + ' (${stack.length - idx - 3})';
+				trace('accessing stack @ $idx : ' + [for (x in stack) ( (Std.is(x, ValueObject)) ? x.sig() : Type.getClassName(Type.getClass(x)) + "=>" + (x == null)) ], (Std.is(stack[stack.length - idx - 3], ValueObject)) ? stack[stack.length - idx - 3].sig() : null);
 				acc = stack[stack.length - idx - 3];
 			case Op.AccStack0:
 				acc = stack[stack.length - 1];
@@ -680,23 +728,24 @@ class VM {
 				acc = env[i];
 			case Op.AccField:
 				trace(hfields.get(code[pc]));
+				if (code[pc] == h("h"))
+				{
+					trace([for (k in cast(acc, ValueObject).fields.keys()) fieldName(k)], acc);
+					trace(getField(acc, code[pc]));
+				}
 				switch(code[pc])
 				{
 				case s_id if (Std.is(acc, String)):
 				case a_id if (Std.is(acc, Array)):
-				case new_id, super_id , cls_id if (Std.is(acc, Class)):
-					switch(code[pc])
-					{
-					case new_id:
-						var cl = acc;
-						acc = Reflect.makeVarArgs(function(args) {
-							return Type.createInstance(cl, args);
-						});
-					case super_id:
-						acc = Type.getSuperClass(acc);
-					default:
-					}
-				default:
+				case new_id if (Std.is(acc, Class)):
+					var cl = acc;
+					acc = Reflect.makeVarArgs(function(args) {
+						return Type.createInstance(cl, args);
+					});
+				case super_id if (Std.is(acc, Class)):
+					acc = Type.getSuperClass(acc);
+				case cls_id if (Std.is(acc, Class)):
+				case g:
 					if (Std.is(acc, ValueObject)) {
 						trace("here");
 						//for (k in cast(acc, ValueObject).fields.keys())
@@ -704,8 +753,8 @@ class VM {
 							//trace('${code[pc]} - $k : ${fieldName(k)} (${acc.fields.get(k) == null})');
 						}
 					}
-					if( acc == null ) error(pc, "Invalid field access : " + fieldName(code[pc]));
-					acc = getField(acc, code[pc]);
+					if( acc == null ) error(pc - 1, "Invalid field access : " + fieldName(g));
+					acc = getField(acc, g);
 					//trace(acc);
 				}
 				pc++;
@@ -785,7 +834,21 @@ class VM {
 				var o2 = as(obj, ValueObject);
 				if (o2 != null)
 				{
-					o2.fields.set(code[pc++], acc); //FIXME: check for references on prototype
+					if (code[pc] == h("h"))
+					{
+						trace("set",o2,[for (k in o2.fields.keys()) fieldName(k)], acc);
+					}
+					var g = code[pc++];
+					if (!o2.fields.exists(g))
+					{
+						var proto = o2.proto;
+						while (proto != null)
+						{
+							proto.fields.remove(g);
+							proto = proto.proto;
+						}
+					}
+					o2.fields.set(g, acc); //FIXME: check for references on prototype
 				} else if (Std.is(obj, Class)) {
 					pc++; //FIXME
 				} else {
@@ -836,8 +899,11 @@ class VM {
 				#end
 				stack.push(acc);
 			case Op.Pop:
+				trace(stack.length);
+				trace(code[pc]);
 				for( i in 0...code[pc++] )
 					stack.pop();
+				trace(stack.length);
 			case Op.TailCall:
 				var v = code[pc];
 				var nstack = v >> 3;
