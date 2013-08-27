@@ -37,6 +37,11 @@ class Main
 		loader.fields.set(vm.hashField("String"), String );
 		//loader.fields.set(vm.hashField("Std"), { "new": function(s) return s } );
 		loader.fields.set(vm.hashField("args"), VArray(Sys.args().map(vm.wrap)));
+		
+		var fn:Dynamic = Reflect.makeVarArgs(function(args) {
+			trace(args);
+		});
+		
 		loop(d, vm, loader);
 	}
 	

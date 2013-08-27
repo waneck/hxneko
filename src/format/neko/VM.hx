@@ -506,8 +506,8 @@ class VM {
 		
 		var args = [];
 		for( i in 0...nargs )
-			//args.unshift(unwrap(stack.pop()));
-			args.push(stack[stack.length - nargs + i]);
+			args.unshift(unwrap(stack.pop()));
+			//args.push(stack[stack.length - nargs + i]);
 		//trace(args.length);
 		var fn:ValueEnvFunction = as(f, ValueEnvFunction);
 		if (fn != null)
@@ -528,8 +528,8 @@ class VM {
 		}
 		
 		vthis = old;
-		for( i in 0...nargs )
-			stack.pop();
+		//for( i in 0...nargs )
+			//stack.pop();
 		return ret;
 		
 		#end
@@ -1019,7 +1019,7 @@ class VM {
 				var a = new Array();
 				for( i in 0...code[pc++] )
 					a.unshift(stack.pop());
-				a.unshift(acc);
+				a.push(acc);
 				acc = VArray(a);
 			case Op.Bool:
 				#if xneko_strict_value
