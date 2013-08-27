@@ -165,7 +165,15 @@ class Builtins {
 		return (a == b ? 0 : (is(a, ValueObject) && is(b, ValueObject)) ? (objcall(a, h("__compare"), [b])) : Reflect.compare(a, b));
 		
 		#else
-		return (a == b ? 0 : (is(a, ValueObject)) ? (objcall(a, h("__compare"), [b])) : Reflect.compare(a, b));
+		if (a == b)
+			return 0;
+		var av:ValueObject = as(a, ValueObject);
+		if (av != null && av.fields.exists(h("__compare")))
+		{
+			return objcall(a, h("__compare"), [b]);
+		} else {
+			return Reflect.compare(a, b);
+		}
 		
 		#end
 	}
@@ -325,7 +333,8 @@ class Builtins {
 		val_check_array(args);
 		
 		#end
-		return vm.call(ctx, f, args);
+		var ret = vm.call(ctx, f, args);
+		return ret;
 	}
 	
 	public function ssize( s : Value ) : Value
@@ -609,7 +618,6 @@ class Builtins {
 		}
 		
 		#else
-		trace(s, idx);
 		return s.charCodeAt(idx);
 		
 		#end

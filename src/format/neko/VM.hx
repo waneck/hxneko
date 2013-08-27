@@ -31,6 +31,7 @@ import format.neko.Value;
 import format.neko.Value.ValueTools.*;
 import format.neko.internal.Macro.h;
 import haxe.ds.Vector;
+import haxe.PosInfos;
 
 class VM {
 	
@@ -200,13 +201,14 @@ class VM {
 			if (ret != null)
 			{
 				return Reflect.makeVarArgs(function (arr:Array<Dynamic>) {
+					//trace(1);
 					for (i in 0...arr.length)
 					{
-						trace(arr[i]);
-						trace(Std.is(arr[i], ValueObject));
-						for (f in Reflect.fields(arr[i]))
-							trace(f);
-						trace(Type.getClassName(Type.getClass(arr[i])));
+						//trace(arr[i]);
+						//trace(Std.is(arr[i], ValueObject));
+						//for (f in Reflect.fields(arr[i]))
+							//trace(f);
+						//trace(Type.getClassName(Type.getClass(arr[i])));
 						arr[i] = haxeToNeko(arr[i]);
 					}
 					return nekoToHaxe(Reflect.callMethod(null, ret, arr));
@@ -280,7 +282,7 @@ class VM {
 		case 8:
 			return v;
 		case i:
-			trace(i);
+			//trace(i);
 			throw "Can't convert "+v;
 		}
 	}
@@ -299,29 +301,29 @@ class VM {
 			case GlobalString(s): VString(s);
 			case GlobalFunction(pos, nargs): VFunction(switch( nargs ) {
 				case 0: VFun0(function() {
-					trace(stack.length);
+					//trace(stack.length);
 					return me.fcall(mod, pos);
 				});
 				case 1: VFun1(function(a) {
-					trace(stack.length);
+					//trace(stack.length);
 					me.stack.push(a);
 					return me.fcall(mod, pos);
 				});
 				case 2: VFun2(function(a, b) {
-					trace(stack.length);
+					//trace(stack.length);
 					me.stack.push(a);
 					me.stack.push(b);
 					return me.fcall(mod, pos);
 				});
 				case 3: VFun3(function(a, b, c) {
-					trace(stack.length);
+					//trace(stack.length);
 					me.stack.push(a);
 					me.stack.push(b);
 					me.stack.push(c);
 					return me.fcall(mod, pos);
 				});
 				case 4: VFun4(function(a, b, c, d) {
-					trace(stack.length);
+					//trace(stack.length);
 					me.stack.push(a);
 					me.stack.push(b);
 					me.stack.push(c);
@@ -329,7 +331,7 @@ class VM {
 					return me.fcall(mod, pos);
 				});
 				case 5: VFun5(function(a, b, c, d, e) {
-					trace(stack.length);
+					//trace(stack.length);
 					me.stack.push(a);
 					me.stack.push(b);
 					me.stack.push(c);
@@ -338,14 +340,14 @@ class VM {
 					return me.fcall(mod, pos);
 				});
 				case -1: VFunVar(function(arr) {
-					trace(stack.length);
+					//trace(stack.length);
 					for (a in arr)
 						me.stack.push(a);
 					return me.fcall(mod, pos);
 				});
 				default:
 					VFunVar(function(arr) {
-						trace(stack.length);
+						//trace(stack.length);
 						if (arr.length != nargs) throw 'Invalid call: $nargs (${arr.length})';
 						for (a in arr)
 							me.stack.push(a);
@@ -372,7 +374,7 @@ class VM {
 		{
 			if (trap >= 0 && trap >= initStack)
 			{
-				trace('caught exception: $e');
+				//trace('caught exception:');
 				if (stack.length < trap)
 				{
 					throw VString('Invalid trap $trap (${stack.length})');
@@ -381,8 +383,11 @@ class VM {
 				
 				this.trap = stack.pop();
 				var pc = stack.pop();
+				//trace(pc);
 				this.env = stack.pop();
 				this.vthis = stack.pop();
+				stack.pop();
+				stack.pop();
 				
 				loop(pc, e);
 			} else {
@@ -425,11 +430,11 @@ class VM {
 	}
 
 	function fcall( m : Module, pc : Int) {
-		trace("fcall " + stack.length);
+		//trace("fcall " + stack.length);
 		var old = this.module;
 		this.module = m;
 		var acc = loop(pc, VNull);
-		trace("fcall end " + stack.length);
+		//trace("fcall end " + stack.length);
 		this.module = old;
 		return acc;
 	}
@@ -501,11 +506,13 @@ class VM {
 		
 		var args = [];
 		for( i in 0...nargs )
-			args.unshift(unwrap(stack.pop()));
-		
+			//args.unshift(unwrap(stack.pop()));
+			args.push(stack[stack.length - nargs + i]);
+		//trace(args.length);
 		var fn:ValueEnvFunction = as(f, ValueEnvFunction);
 		if (fn != null)
 		{
+			//trace("here");
 			var oenv = env, omod = module;
 			env = fn.env;
 			module = fn.module;
@@ -521,6 +528,8 @@ class VM {
 		}
 		
 		vthis = old;
+		for( i in 0...nargs )
+			stack.pop();
 		return ret;
 		
 		#end
@@ -548,9 +557,9 @@ class VM {
 		if (arr2 != null)
 		{
 			var fn = getFieldObj(arr2, h("__get"));
-			trace(fn);
-			for (h in arr2.fields.keys()) trace(fieldName(h));
-			trace(arr2.fields.get(h("h")) == acc);
+			//trace(fn);
+			//for (h in arr2.fields.keys()) trace(fieldName(h));
+			//trace(arr2.fields.get(h("h")) == acc);
 			return call(arr2, fn, [index]);
 		} else {
 			return acc[index];
@@ -615,6 +624,7 @@ class VM {
 			case VFun4(f): return function(x,y,z,w) return me.unwrap(f(me.wrap(x),me.wrap(y),me.wrap(z),me.wrap(w)));
 			case VFun5(f): return function(x,y,z,w,k) return me.unwrap(f(me.wrap(x),me.wrap(y),me.wrap(z),me.wrap(w),me.wrap(k)));
 			case VFunVar(f): return Reflect.makeVarArgs(function(args) {
+					//trace(2);
 					var args2 = new Array();
 					for( x in args ) args2.push(me.wrap(x));
 					return me.unwrap(f(args2));
@@ -690,7 +700,8 @@ class VM {
 		while ( true ) {
 			var op = code[pc++];
 			var dbg = module.debug[pc];
-			if ( dbg != null ) trace(dbg.file + "(" + dbg.line + ") " + opcodes[op] + " " +stack.length + "@" + pc);
+			//if ( dbg != null ) trace(dbg.file + "(" + dbg.line + ") " + op + " - " + opcodes[op] + " " +stack.length + "@" + pc);
+			//else trace("index " + op + " - " + opcodes[op] + " " +stack.length + "@" + pc);
 			switch( op ) {
 			case Op.AccNull:
 				acc = VNull;
@@ -706,9 +717,9 @@ class VM {
 				acc = VInt(code[pc++]);
 			case Op.AccStack:
 				var idx = code[pc++];
+				//trace('accessing stack @ $idx : ' + [for (x in stack) ( (Std.is(x, ValueObject)) ? x.sig() : Type.getClassName(Type.getClass(x)) + "=>" + (x == null)) ], (Std.is(stack[stack.length - idx - 3], ValueObject)) ? stack[stack.length - idx - 3].sig() : null);
 				if (stack.length - idx - 3 < 0)
 					throw "Invalid stack access: " + idx + ' (${stack.length - idx - 3})';
-				trace('accessing stack @ $idx : ' + [for (x in stack) ( (Std.is(x, ValueObject)) ? x.sig() : Type.getClassName(Type.getClass(x)) + "=>" + (x == null)) ], (Std.is(stack[stack.length - idx - 3], ValueObject)) ? stack[stack.length - idx - 3].sig() : null);
 				acc = stack[stack.length - idx - 3];
 			case Op.AccStack0:
 				acc = stack[stack.length - 1];
@@ -727,11 +738,11 @@ class VM {
 				//trace(dbg.file + "(" + dbg.line + ") " + 'accessing  $env : $i :: ${env[i]}');
 				acc = env[i];
 			case Op.AccField:
-				trace(hfields.get(code[pc]));
+				//trace(hfields.get(code[pc]));
 				if (code[pc] == h("h"))
 				{
-					trace([for (k in cast(acc, ValueObject).fields.keys()) fieldName(k)], acc);
-					trace(getField(acc, code[pc]));
+					//trace([for (k in cast(acc, ValueObject).fields.keys()) fieldName(k)], acc);
+					//trace(getField(acc, code[pc]));
 				}
 				switch(code[pc])
 				{
@@ -740,6 +751,7 @@ class VM {
 				case new_id if (Std.is(acc, Class)):
 					var cl = acc;
 					acc = Reflect.makeVarArgs(function(args) {
+						//trace(3);
 						return Type.createInstance(cl, args);
 					});
 				case super_id if (Std.is(acc, Class)):
@@ -747,7 +759,7 @@ class VM {
 				case cls_id if (Std.is(acc, Class)):
 				case g:
 					if (Std.is(acc, ValueObject)) {
-						trace("here");
+						//trace("here");
 						//for (k in cast(acc, ValueObject).fields.keys())
 						{
 							//trace('${code[pc]} - $k : ${fieldName(k)} (${acc.fields.get(k) == null})');
@@ -836,7 +848,7 @@ class VM {
 				{
 					if (code[pc] == h("h"))
 					{
-						trace("set",o2,[for (k in o2.fields.keys()) fieldName(k)], acc);
+						//trace("set",o2,[for (k in o2.fields.keys()) fieldName(k)], acc);
 					}
 					var g = code[pc++];
 					if (!o2.fields.exists(g))
@@ -899,11 +911,11 @@ class VM {
 				#end
 				stack.push(acc);
 			case Op.Pop:
-				trace(stack.length);
-				trace(code[pc]);
+				//trace(stack.length);
+				//trace(code[pc]);
 				for( i in 0...code[pc++] )
 					stack.pop();
-				trace(stack.length);
+				//trace(stack.length);
 			case Op.TailCall:
 				var v = code[pc];
 				var nstack = v >> 3;
@@ -925,11 +937,12 @@ class VM {
 				return mcall(pc, vthis, acc, nargs);
 			case Op.Call:
 				acc = mcall(pc, vthis, acc, code[pc]);
-				trace(acc == null);
+				//trace(stack.length);
+				//trace(acc == null);
 				pc++;
 			case Op.ObjCall:
 				acc = mcall(pc, stack.pop(), acc, code[pc]);
-				trace(acc == null);
+				//trace(acc == null);
 				pc++;
 			case Op.Jump:
 				pc += code[pc] - 1;
@@ -961,17 +974,24 @@ class VM {
 				#end
 				pc++;
 			case Op.Trap:
+				
+				stack.push(null);
+				stack.push(null);
 				stack.push(vthis);
 				stack.push(env);
-				stack.push(pc);
+				//trace(code[pc-1]);
+				//trace(code[pc]);
+				//trace(code[pc + 1]);
+				//pc += code[pc] - 1;
+				stack.push(pc + code[pc++] - 1);
 				stack.push(trap);
 				
 				trap = stack.length;
-				
-				pc++;
 			case Op.EndTrap:
 				if (trap != stack.length) error(pc, "Invalid End Trap");
 				trap = stack.pop();
+				stack.pop();
+				stack.pop();
 				stack.pop();
 				stack.pop();
 				stack.pop();
@@ -979,7 +999,7 @@ class VM {
 			case Op.Ret:
 				for( i in 0...code[pc++] )
 					stack.pop();
-				trace(acc == null);
+				//trace(acc == null);
 				return acc;
 			case Op.MakeEnv:
 				var n = code[pc++];
@@ -1282,13 +1302,13 @@ class VM {
 				}
 				
 				#else
-				trace(acc, code[pc]);
+				//trace(acc, code[pc]);
 				if (Std.is(acc, Int))
 				{
 					var a:Int = acc;
 					if (a < code[pc])
 					{
-						trace('here $pc - $a');
+						//trace('here $pc - $a');
 						for (i in 0...(a*2))
 						{
 							//trace(opcodes[code[pc + i]] + ": " + code[pc + i] + (opcodes[code[pc+i]] == null ? '(${code[pc + i] + pc + i })' : ''));
